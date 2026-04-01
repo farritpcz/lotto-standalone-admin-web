@@ -168,7 +168,7 @@ export default function ResultsPage() {
             >
               <option value="">เลือกรอบ...</option>
               {rounds.map(r => (
-                <option key={r.id} value={r.id}>{r.lottery_type?.name} — รอบ {r.round_number}</option>
+                <option key={r.id} value={r.id}>{r.lottery_type?.name} — #{r.id} {r.round_number}</option>
               ))}
             </select>
 
@@ -226,7 +226,7 @@ export default function ResultsPage() {
       {preview && (
         <div className="card-surface" style={{ padding: 20, marginBottom: 24, borderColor: 'rgba(0,229,160,0.3)' }}>
           <div className="label" style={{ marginBottom: 16, color: 'var(--accent)' }}>
-            ตัวอย่างผลรอบ {preview.round_number}
+            ตัวอย่างผล #{selectedRound?.id} {preview.round_number}
           </div>
 
           {/* สรุปยอด */}
@@ -314,6 +314,7 @@ export default function ResultsPage() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>ID</th>
                 <th>ประเภทหวย</th>
                 <th>รอบ</th>
                 <th style={{ textAlign: 'center' }}>3 ตัวบน</th>
@@ -324,6 +325,7 @@ export default function ResultsPage() {
             <tbody>
               {results.map(r => (
                 <tr key={r.id} onClick={() => openResultDetail(r)} style={{ cursor: 'pointer' }}>
+                  <td className="mono secondary">#{r.id}</td>
                   <td>{r.lottery_type?.name}</td>
                   <td className="mono secondary">{r.round_number}</td>
                   <td className="mono" style={{ textAlign: 'center', color: '#f5a623', fontWeight: 700, fontSize: 16 }}>{r.result_top3}</td>

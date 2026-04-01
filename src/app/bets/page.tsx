@@ -17,7 +17,7 @@ interface Bet {
   status: string; win_amount: number; created_at: string
   member?: { username: string }
   bet_type?: { name: string; code: string }
-  lottery_round?: { round_number: string }
+  lottery_round?: { id: number; round_number: string }
 }
 
 /* Status → badge class mapping */
@@ -97,7 +97,7 @@ export default function BetsPage() {
                     <td>{b.member?.username || '—'}</td>
                     <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{b.number}</td>
                     <td className="secondary" style={{ fontSize: 12 }}>{b.bet_type?.name}</td>
-                    <td className="secondary mono" style={{ fontSize: 12 }}>{b.lottery_round?.round_number}</td>
+                    <td className="secondary mono" style={{ fontSize: 12 }}>#{b.lottery_round?.id} {b.lottery_round?.round_number}</td>
                     <td className="mono" style={{ textAlign: 'right' }}>฿{b.amount.toLocaleString()}</td>
                     <td className="mono secondary" style={{ textAlign: 'right' }}>x{b.rate}</td>
                     <td><span className={`badge ${st.cls}`}>{st.label}</span></td>

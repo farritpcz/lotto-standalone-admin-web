@@ -340,6 +340,7 @@ export default function RoundsPage() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>ID</th>
                 <th>ประเภทหวย</th>
                 <th>เลขรอบ</th>
                 <th>วันที่</th>
@@ -356,6 +357,8 @@ export default function RoundsPage() {
 
                 return (
                   <tr key={r.id}>
+                    {/* ID */}
+                    <td className="mono secondary">#{r.id}</td>
                     {/* ประเภทหวย (ชื่อ + icon) */}
                     <td style={{ fontWeight: 500 }}>
                       {r.lottery_type?.icon ? `${r.lottery_type.icon} ` : ''}
