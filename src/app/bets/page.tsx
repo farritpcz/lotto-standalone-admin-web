@@ -1,69 +1,126 @@
 /**
- * Admin — ดูรายการเดิมพันทั้งหมด
+ * Admin — รายการเดิมพัน (All Bets)
+ * Linear/Vercel dark theme
+ *
+ * - ตาราง bets ทั้งหมด + filter by status
+ * - Pagination
+ * - ใช้ design system: admin-table, badge, btn
  */
 'use client'
+
 import { useEffect, useState } from 'react'
 import { betMgmtApi } from '@/lib/api'
 
-interface Bet { id: number; number: string; amount: number; rate: number; status: string; win_amount: number; created_at: string; member?: { username: string }; bet_type?: { name: string }; lottery_round?: { round_number: string } }
+/* Bet interface */
+interface Bet {
+  id: number; number: string; amount: number; rate: number
+  status: string; win_amount: number; created_at: string
+  member?: { username: string }
+  bet_type?: { name: string; code: string }
+  lottery_round?: { round_number: string }
+}
 
-const statusColors: Record<string, string> = { pending: 'text-yellow-400', won: 'text-green-400', lost: 'text-red-400' }
+/* Status → badge class mapping */
+const statusBadge: Record<string, { cls: string; label: string }> = {
+  pending: { cls: 'badge-warning', label: 'รอผล' },
+  won:     { cls: 'badge-success', label: 'ชนะ' },
+  lost:    { cls: 'badge-error', label: 'แพ้' },
+}
+
+/* Filter tabs */
+const filters = [
+  { key: '', label: 'ทั้งหมด' },
+  { key: 'pending', label: 'รอผล' },
+  { key: 'won', label: 'ชนะ' },
+  { key: 'lost', label: 'แพ้' },
+]
 
 export default function BetsPage() {
   const [bets, setBets] = useState<Bet[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     betMgmtApi.list({ page, per_page: 30, status: status || undefined })
       .then(res => { setBets(res.data.data?.items || []); setTotal(res.data.data?.total || 0) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [page, status])
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-4">รายการเดิมพัน ({total})</h1>
-      <div className="flex gap-2 mb-4">
-        {['', 'pending', 'won', 'lost'].map(s => (
-          <button key={s} onClick={() => { setStatus(s); setPage(1) }}
-            className={`px-4 py-2 rounded-lg text-sm ${status === s ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>
-            {s || 'ทั้งหมด'}
+    <div className="page-container">
+      <div className="page-header">
+        <h1>รายการเดิมพัน</h1>
+        <span className="label">{total} รายการ</span>
+      </div>
+
+      {/* Filter */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {filters.map(f => (
+          <button key={f.key} onClick={() => { setStatus(f.key); setPage(1) }}
+            className={status === f.key ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ fontSize: 12 }}>
+            {f.label}
           </button>
         ))}
       </div>
-      <div className="bg-gray-800 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-700/50 text-gray-400">
-            <tr>
-              <th className="px-3 py-3 text-left">สมาชิก</th>
-              <th className="px-3 py-3 text-left">เลข</th>
-              <th className="px-3 py-3 text-left">ประเภท</th>
-              <th className="px-3 py-3 text-right">จำนวน</th>
-              <th className="px-3 py-3 text-center">สถานะ</th>
-              <th className="px-3 py-3 text-right">รางวัล</th>
-              <th className="px-3 py-3 text-right">เวลา</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bets.map(b => (
-              <tr key={b.id} className="border-t border-gray-700/50">
-                <td className="px-3 py-2 text-gray-300">{b.member?.username}</td>
-                <td className="px-3 py-2 text-white font-mono font-bold">{b.number}</td>
-                <td className="px-3 py-2 text-gray-400 text-xs">{b.bet_type?.name}</td>
-                <td className="px-3 py-2 text-right text-white">฿{b.amount.toLocaleString()}</td>
-                <td className="px-3 py-2 text-center"><span className={`text-xs ${statusColors[b.status]}`}>{b.status}</span></td>
-                <td className="px-3 py-2 text-right text-green-400">{b.win_amount > 0 ? `฿${b.win_amount.toLocaleString()}` : '-'}</td>
-                <td className="px-3 py-2 text-right text-gray-500 text-xs">{new Date(b.created_at).toLocaleString('th-TH')}</td>
+
+      {/* Table */}
+      <div className="card-surface" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+        ) : bets.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>ไม่มีรายการ</div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>สมาชิก</th>
+                <th>เลข</th>
+                <th>ประเภท</th>
+                <th>รอบ</th>
+                <th style={{ textAlign: 'right' }}>จำนวน</th>
+                <th style={{ textAlign: 'right' }}>Rate</th>
+                <th>สถานะ</th>
+                <th style={{ textAlign: 'right' }}>รางวัล</th>
+                <th style={{ textAlign: 'right' }}>เวลา</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {bets.map(b => {
+                const st = statusBadge[b.status] || statusBadge.pending
+                return (
+                  <tr key={b.id}>
+                    <td>{b.member?.username || '—'}</td>
+                    <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{b.number}</td>
+                    <td className="secondary" style={{ fontSize: 12 }}>{b.bet_type?.name}</td>
+                    <td className="secondary mono" style={{ fontSize: 12 }}>{b.lottery_round?.round_number}</td>
+                    <td className="mono" style={{ textAlign: 'right' }}>฿{b.amount.toLocaleString()}</td>
+                    <td className="mono secondary" style={{ textAlign: 'right' }}>x{b.rate}</td>
+                    <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
+                    <td className="mono" style={{ textAlign: 'right', color: b.win_amount > 0 ? 'var(--status-success)' : 'var(--text-tertiary)' }}>
+                      {b.win_amount > 0 ? `+฿${b.win_amount.toLocaleString()}` : '—'}
+                    </td>
+                    <td className="secondary" style={{ textAlign: 'right', fontSize: 12 }}>
+                      {new Date(b.created_at).toLocaleString('th-TH')}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
+
+      {/* Pagination */}
       {total > 30 && (
-        <div className="flex justify-center gap-2 mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="px-3 py-1 bg-gray-700 text-gray-300 rounded disabled:opacity-50">ก่อนหน้า</button>
-          <span className="px-3 py-1 text-gray-400">หน้า {page}</span>
-          <button onClick={() => setPage(p => p+1)} disabled={bets.length < 30} className="px-3 py-1 bg-gray-700 text-gray-300 rounded disabled:opacity-50">ถัดไป</button>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+          <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page}</span>
+          <button onClick={() => setPage(p => p+1)} disabled={bets.length < 30} className="btn btn-secondary">ถัดไป →</button>
         </div>
       )}
     </div>

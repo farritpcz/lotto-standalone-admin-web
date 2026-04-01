@@ -67,6 +67,7 @@ export const memberMgmtApi = {
   get: (id: number) => api.get(`/members/${id}`),
   update: (id: number, data: Record<string, unknown>) => api.put(`/members/${id}`, data),
   updateStatus: (id: number, status: string) => api.put(`/members/${id}/status`, { status }),
+  adjustBalance: (id: number, amount: number, note: string) => api.put(`/members/${id}/balance`, { amount, note }),
 }
 
 // Lotteries
@@ -121,6 +122,24 @@ export const reportApi = {
 export const settingApi = {
   get: () => api.get('/settings'),
   update: (data: Record<string, unknown>) => api.put('/settings', data),
+}
+
+// =============================================================================
+// Deposit Requests — อนุมัติ/ปฏิเสธคำขอฝากเงิน
+// =============================================================================
+export const depositApi = {
+  list: (params?: Record<string, unknown>) => api.get('/deposits', { params }),
+  approve: (id: number) => api.put(`/deposits/${id}/approve`),
+  reject: (id: number) => api.put(`/deposits/${id}/reject`),
+}
+
+// =============================================================================
+// Withdraw Requests — อนุมัติ/ปฏิเสธคำขอถอนเงิน
+// =============================================================================
+export const withdrawApi = {
+  list: (params?: Record<string, unknown>) => api.get('/withdrawals', { params }),
+  approve: (id: number) => api.put(`/withdrawals/${id}/approve`),
+  reject: (id: number) => api.put(`/withdrawals/${id}/reject`),
 }
 
 // =============================================================================

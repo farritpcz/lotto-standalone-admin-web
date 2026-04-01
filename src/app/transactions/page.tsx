@@ -1,59 +1,126 @@
 /**
- * Admin — ดูรายการธุรกรรมทั้งหมด
+ * Admin — ธุรกรรมทั้งหมด (Transactions)
+ * Linear/Vercel dark theme
+ *
+ * - ตาราง transactions + filter by type
+ * - แสดง: type, member, amount, balance before/after, date
  */
 'use client'
+
 import { useEffect, useState } from 'react'
 import { txMgmtApi } from '@/lib/api'
 
-interface Tx { id: number; type: string; amount: number; balance_before: number; balance_after: number; created_at: string; member_id: number }
+interface Tx {
+  id: number; type: string; amount: number
+  balance_before: number; balance_after: number
+  created_at: string; member_id: number
+}
 
-const typeLabels: Record<string, string> = { deposit: 'ฝาก', withdraw: 'ถอน', bet: 'แทง', win: 'ชนะ', refund: 'คืนเงิน' }
-const typeColors: Record<string, string> = { deposit: 'text-green-400', withdraw: 'text-red-400', bet: 'text-yellow-400', win: 'text-green-400', refund: 'text-blue-400' }
+/* Type → badge */
+const typeBadge: Record<string, { cls: string; label: string }> = {
+  deposit:  { cls: 'badge-success', label: 'ฝาก' },
+  withdraw: { cls: 'badge-error', label: 'ถอน' },
+  bet:      { cls: 'badge-warning', label: 'แทง' },
+  win:      { cls: 'badge-success', label: 'ชนะ' },
+  refund:   { cls: 'badge-info', label: 'คืนเงิน' },
+}
+
+const filters = [
+  { key: '', label: 'ทั้งหมด' },
+  { key: 'deposit', label: 'ฝาก' },
+  { key: 'withdraw', label: 'ถอน' },
+  { key: 'bet', label: 'แทง' },
+  { key: 'win', label: 'ชนะ' },
+]
 
 export default function TransactionsPage() {
   const [txns, setTxns] = useState<Tx[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     txMgmtApi.list({ page, per_page: 30, type: typeFilter || undefined })
       .then(res => { setTxns(res.data.data?.items || []); setTotal(res.data.data?.total || 0) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [page, typeFilter])
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-4">ธุรกรรมทั้งหมด ({total})</h1>
-      <div className="flex gap-2 mb-4">
-        {['', 'deposit', 'withdraw', 'bet', 'win'].map(t => (
-          <button key={t} onClick={() => { setTypeFilter(t); setPage(1) }}
-            className={`px-4 py-2 rounded-lg text-sm ${typeFilter === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>
-            {t ? typeLabels[t] : 'ทั้งหมด'}
+    <div className="page-container">
+      <div className="page-header">
+        <h1>ธุรกรรมทั้งหมด</h1>
+        <span className="label">{total} รายการ</span>
+      </div>
+
+      {/* Filter */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {filters.map(f => (
+          <button key={f.key} onClick={() => { setTypeFilter(f.key); setPage(1) }}
+            className={typeFilter === f.key ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ fontSize: 12 }}>
+            {f.label}
           </button>
         ))}
       </div>
-      <div className="space-y-2">
-        {txns.map(tx => (
-          <div key={tx.id} className="bg-gray-800 rounded-lg p-3 flex items-center justify-between">
-            <div>
-              <span className={`font-semibold text-sm ${typeColors[tx.type]}`}>{typeLabels[tx.type] || tx.type}</span>
-              <span className="text-gray-500 text-xs ml-2">Member #{tx.member_id}</span>
-              <div className="text-gray-600 text-xs">{new Date(tx.created_at).toLocaleString('th-TH')}</div>
-            </div>
-            <div className="text-right">
-              <span className={`font-semibold ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {tx.amount >= 0 ? '+' : ''}฿{Math.abs(tx.amount).toLocaleString()}
-              </span>
-              <div className="text-gray-500 text-xs">คงเหลือ ฿{tx.balance_after.toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
+
+      {/* Table */}
+      <div className="card-surface" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+        ) : txns.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>ไม่มีรายการ</div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>ประเภท</th>
+                <th>สมาชิก</th>
+                <th style={{ textAlign: 'right' }}>จำนวน</th>
+                <th style={{ textAlign: 'right' }}>ก่อน</th>
+                <th style={{ textAlign: 'right' }}>หลัง</th>
+                <th style={{ textAlign: 'right' }}>เวลา</th>
+              </tr>
+            </thead>
+            <tbody>
+              {txns.map(tx => {
+                const tb = typeBadge[tx.type] || { cls: 'badge-neutral', label: tx.type }
+                return (
+                  <tr key={tx.id}>
+                    <td className="mono secondary">#{tx.id}</td>
+                    <td><span className={`badge ${tb.cls}`}>{tb.label}</span></td>
+                    <td className="secondary">ID:{tx.member_id}</td>
+                    <td className="mono" style={{
+                      textAlign: 'right', fontWeight: 600,
+                      color: tx.amount >= 0 ? 'var(--status-success)' : 'var(--status-error)',
+                    }}>
+                      {tx.amount >= 0 ? '+' : ''}฿{Math.abs(tx.amount).toLocaleString()}
+                    </td>
+                    <td className="mono secondary" style={{ textAlign: 'right', fontSize: 12 }}>
+                      ฿{tx.balance_before.toLocaleString()}
+                    </td>
+                    <td className="mono" style={{ textAlign: 'right', fontSize: 12 }}>
+                      ฿{tx.balance_after.toLocaleString()}
+                    </td>
+                    <td className="secondary" style={{ textAlign: 'right', fontSize: 12 }}>
+                      {new Date(tx.created_at).toLocaleString('th-TH')}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
+
       {total > 30 && (
-        <div className="flex justify-center gap-2 mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="px-3 py-1 bg-gray-700 text-gray-300 rounded disabled:opacity-50">ก่อนหน้า</button>
-          <span className="px-3 py-1 text-gray-400">หน้า {page}</span>
-          <button onClick={() => setPage(p => p+1)} disabled={txns.length < 30} className="px-3 py-1 bg-gray-700 text-gray-300 rounded disabled:opacity-50">ถัดไป</button>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+          <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page}</span>
+          <button onClick={() => setPage(p => p+1)} disabled={txns.length < 30} className="btn btn-secondary">ถัดไป →</button>
         </div>
       )}
     </div>

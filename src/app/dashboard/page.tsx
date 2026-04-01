@@ -1,71 +1,88 @@
 /**
- * Admin Dashboard — หน้าหลักแอดมิน
+ * Admin Dashboard — Linear/Vercel style
  *
- * แสดง: สรุปยอดรวม, กำไร/ขาดทุน, จำนวนสมาชิก, จำนวน bets
- *
- * ความสัมพันธ์:
- * - เรียก API: dashboardApi.getStats() → standalone-admin-api (#5)
- * - provider-backoffice-admin-web (#10) มีหน้า dashboard คล้ายกัน
- *   ต่างกันที่: #10 มีข้อมูลแยกตาม operator
+ * - stat cards จาก API จริง (dashboardApi.getStats)
+ * - กำไรวันนี้
+ * - Quick actions: pending deposits/withdrawals
  */
-
 'use client'
 
-export default function AdminDashboard() {
-  // TODO: fetch จาก dashboardApi.getStats()
-  const stats = {
-    totalMembers: 0,
-    activeMembers: 0,
-    totalBetsToday: 0,
-    totalAmountToday: 0,
-    profitToday: 0,
-    openRounds: 0,
-  }
+import { useEffect, useState } from 'react'
+import { dashboardApi } from '@/lib/api'
+
+/* stat card configs */
+const statConfigs = [
+  { key: 'total_members', label: 'สมาชิกทั้งหมด', color: '#3b82f6', prefix: '' },
+  { key: 'active_members', label: 'สมาชิก Active', color: '#00e5a0', prefix: '' },
+  { key: 'total_bets_today', label: 'Bets วันนี้', color: '#f5a623', prefix: '' },
+  { key: 'total_amount_today', label: 'ยอดแทงวันนี้', color: '#a855f7', prefix: '฿' },
+  { key: 'total_win_today', label: 'จ่ายรางวัลวันนี้', color: '#ef4444', prefix: '฿' },
+  { key: 'open_rounds', label: 'รอบที่เปิด', color: '#06b6d4', prefix: '' },
+]
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<Record<string, number>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    dashboardApi.getStats()
+      .then(res => setStats(res.data.data || {}))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const profit = (stats.total_amount_today || 0) - (stats.total_win_today || 0)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Dashboard</h1>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <StatCard label="สมาชิกทั้งหมด" value={stats.totalMembers} color="blue" />
-        <StatCard label="สมาชิก Active" value={stats.activeMembers} color="green" />
-        <StatCard label="Bets วันนี้" value={stats.totalBetsToday} color="purple" />
-        <StatCard label="ยอดแทงวันนี้" value={`฿${stats.totalAmountToday.toLocaleString()}`} color="yellow" />
-        <StatCard label="กำไรวันนี้" value={`฿${stats.profitToday.toLocaleString()}`} color="green" />
-        <StatCard label="รอบที่เปิด" value={stats.openRounds} color="cyan" />
+    <div className="page-container">
+      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      <div className="page-header">
+        <h1>Dashboard</h1>
       </div>
 
-      {/* Chart placeholder */}
-      <div className="bg-gray-800 rounded-xl p-6 mb-6">
-        <h2 className="text-white font-semibold mb-4">กราฟยอดแทง 7 วันย้อนหลัง</h2>
-        <div className="h-64 flex items-center justify-center text-gray-500">
-          TODO: recharts BarChart
+      {/* ── Stat Cards ───────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+        gap: 12, marginBottom: 24,
+      }}>
+        {statConfigs.map(cfg => (
+          <div key={cfg.key} className="stat-card">
+            <div className="label" style={{ marginBottom: 8 }}>{cfg.label}</div>
+            <div className="metric" style={{ color: cfg.color }}>
+              {loading ? '—' : `${cfg.prefix}${(stats[cfg.key] || 0).toLocaleString()}`}
+            </div>
+          </div>
+        ))}
+
+        {/* Profit card */}
+        <div className="stat-card" style={{
+          borderColor: profit >= 0 ? 'rgba(0,229,160,0.2)' : 'rgba(239,68,68,0.2)',
+        }}>
+          <div className="label" style={{ marginBottom: 8 }}>กำไรวันนี้</div>
+          <div className="metric" style={{ color: profit >= 0 ? '#00e5a0' : '#ef4444' }}>
+            {loading ? '—' : `${profit >= 0 ? '+' : ''}฿${profit.toLocaleString()}`}
+          </div>
         </div>
       </div>
 
-      {/* Recent bets */}
-      <div className="bg-gray-800 rounded-xl p-6">
-        <h2 className="text-white font-semibold mb-4">การแทงล่าสุด</h2>
-        <div className="text-gray-500 text-sm">TODO: ตาราง bets ล่าสุด</div>
+      {/* ── Quick Actions ────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="card-surface" style={{ padding: '16px 20px' }}>
+          <div className="label" style={{ marginBottom: 8 }}>รายการฝากรอดำเนินการ</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span className="metric" style={{ color: 'var(--status-warning)' }}>0</span>
+            <a href="/deposits" className="btn btn-secondary" style={{ textDecoration: 'none' }}>ดูทั้งหมด</a>
+          </div>
+        </div>
+        <div className="card-surface" style={{ padding: '16px 20px' }}>
+          <div className="label" style={{ marginBottom: 8 }}>รายการถอนรอดำเนินการ</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span className="metric" style={{ color: 'var(--status-warning)' }}>0</span>
+            <a href="/withdrawals" className="btn btn-secondary" style={{ textDecoration: 'none' }}>ดูทั้งหมด</a>
+          </div>
+        </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ label, value, color }: { label: string; value: string | number; color: string }) {
-  const colorMap: Record<string, string> = {
-    blue: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400',
-    green: 'from-green-500/20 to-green-600/10 border-green-500/30 text-green-400',
-    purple: 'from-purple-500/20 to-purple-600/10 border-purple-500/30 text-purple-400',
-    yellow: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30 text-yellow-400',
-    cyan: 'from-cyan-500/20 to-cyan-600/10 border-cyan-500/30 text-cyan-400',
-  }
-
-  return (
-    <div className={`bg-gradient-to-br ${colorMap[color] || colorMap.blue} border rounded-xl p-4`}>
-      <p className="text-gray-400 text-xs">{label}</p>
-      <p className={`text-xl font-bold mt-1 ${colorMap[color]?.split(' ').pop()}`}>{value}</p>
     </div>
   )
 }

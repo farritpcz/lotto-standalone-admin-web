@@ -1,26 +1,397 @@
+/**
+ * LOTTO Admin — Global Design System
+ *
+ * Aesthetic: Linear.app / Vercel Dashboard
+ * — dark theme, high density, professional
+ * — ทุกอย่างต้องรู้สึกว่า "ออกแบบมา"
+ *
+ * Color system, typography, components
+ */
+
 @import "tailwindcss";
 
+/* =============================================================================
+ * COLOR SYSTEM — Dark theme (Linear-inspired)
+ * ============================================================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-base: #0a0a0a;
+  --bg-surface: #111111;
+  --bg-elevated: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.02);
+  --bg-active: rgba(255, 255, 255, 0.04);
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --border-focus: rgba(0, 229, 160, 0.5);
+
+  /* Text */
+  --text-primary: #ededed;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --text-inverse: #000000;
+
+  /* Accent (brand green) */
+  --accent: #00e5a0;
+  --accent-hover: #00cc8e;
+  --accent-subtle: rgba(0, 229, 160, 0.08);
+  --accent-text: #00e5a0;
+
+  /* Status colors */
+  --status-success: #00e5a0;
+  --status-success-bg: rgba(0, 229, 160, 0.1);
+  --status-warning: #f5a623;
+  --status-warning-bg: rgba(245, 166, 35, 0.1);
+  --status-error: #ef4444;
+  --status-error-bg: rgba(239, 68, 68, 0.1);
+  --status-info: #3b82f6;
+  --status-info-bg: rgba(59, 130, 246, 0.1);
+  --status-pending: #f5a623;
+  --status-pending-bg: rgba(245, 166, 35, 0.1);
+
+  /* Sidebar */
+  --sidebar-width: 220px;
+  --sidebar-bg: #0f0f0f;
+
+  /* Header */
+  --header-height: 48px;
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-geist-mono), 'JetBrains Mono', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =============================================================================
+ * BASE STYLES
+ * ============================================================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* =============================================================================
+ * TYPOGRAPHY
+ * ============================================================================= */
+
+/* Page title */
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Section label (uppercase) */
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+/* Data text (monospace for numbers) */
+.data-text {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Metric number (big stat) */
+.metric {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* =============================================================================
+ * CARD / SURFACE
+ * ============================================================================= */
+.card-surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-surface:hover {
+  border-color: var(--border-hover);
+}
+
+/* Stat card */
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 0 1px var(--border-hover);
+}
+
+/* =============================================================================
+ * TABLE
+ * ============================================================================= */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table thead th {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.admin-table tbody tr {
+  height: 44px;
+  transition: background 0.15s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.admin-table tbody td {
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.admin-table tbody td.secondary {
+  color: var(--text-secondary);
+}
+
+.admin-table tbody td.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+ * BADGES / STATUS
+ * ============================================================================= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-success { background: var(--status-success-bg); color: var(--status-success); }
+.badge-warning { background: var(--status-warning-bg); color: var(--status-warning); }
+.badge-error { background: var(--status-error-bg); color: var(--status-error); }
+.badge-info { background: var(--status-info-bg); color: var(--status-info); }
+.badge-neutral { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+
+/* =============================================================================
+ * BUTTONS
+ * ============================================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.btn-danger {
+  background: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.btn-success {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+}
+
+.btn-success:hover {
+  background: rgba(0, 229, 160, 0.2);
+}
+
+/* =============================================================================
+ * INPUT / FORM
+ * ============================================================================= */
+.input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 229, 160, 0.15);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+select.input {
+  appearance: none;
+  cursor: pointer;
+}
+
+/* =============================================================================
+ * PAGE LAYOUT
+ * ============================================================================= */
+.page-container {
+  padding: 24px;
+  animation: fadeIn 0.2s ease;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* =============================================================================
+ * ANIMATIONS
+ * ============================================================================= */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger animation for table rows */
+.admin-table tbody tr {
+  animation: fadeSlideUp 0.2s ease backwards;
+}
+
+.admin-table tbody tr:nth-child(1) { animation-delay: 0ms; }
+.admin-table tbody tr:nth-child(2) { animation-delay: 30ms; }
+.admin-table tbody tr:nth-child(3) { animation-delay: 60ms; }
+.admin-table tbody tr:nth-child(4) { animation-delay: 90ms; }
+.admin-table tbody tr:nth-child(5) { animation-delay: 120ms; }
+.admin-table tbody tr:nth-child(6) { animation-delay: 150ms; }
+.admin-table tbody tr:nth-child(7) { animation-delay: 180ms; }
+.admin-table tbody tr:nth-child(8) { animation-delay: 210ms; }
+.admin-table tbody tr:nth-child(9) { animation-delay: 240ms; }
+.admin-table tbody tr:nth-child(10) { animation-delay: 270ms; }
+
+/* =============================================================================
+ * RESPONSIVE — Sidebar offset
+ * ============================================================================= */
+@media (min-width: 768px) {
+  .sidebar-desktop { display: block !important; }
+  .sidebar-mobile-btn { display: none !important; }
+  .admin-main-content { margin-left: var(--sidebar-width); }
+}
+
+@media (max-width: 767px) {
+  .sidebar-mobile-btn { display: flex !important; }
+  .admin-main-content { margin-left: 0; padding-top: 56px; }
+}
+
+/* =============================================================================
+ * SCROLLBAR — Minimal style
+ * ============================================================================= */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
