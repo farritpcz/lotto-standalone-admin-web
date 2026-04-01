@@ -89,6 +89,9 @@ export const resultMgmtApi = {
   list: (params?: Record<string, unknown>) => api.get('/results', { params }),
   submit: (roundId: number, data: { top3: string; top2: string; bottom2: string }) =>
     api.post(`/results/${roundId}`, data),
+  /** preview ก่อนกรอกผล — ใครจะถูก จ่ายเท่าไร */
+  preview: (roundId: number, data: { top3: string; top2: string; bottom2: string }) =>
+    api.post(`/results/${roundId}/preview`, data),
 }
 
 // Number Bans
