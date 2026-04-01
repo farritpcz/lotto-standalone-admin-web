@@ -136,6 +136,12 @@ export default function RoundsPage() {
   /** แสดง modal สร้างรอบหวยหรือไม่ */
   const [showModal, setShowModal] = useState(false)
 
+  /** Confirm dialog state — modal สวยๆ แทน browser confirm() */
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; type: 'warning' | 'danger'
+    onConfirm: () => void
+  } | null>(null)
+
   /** ข้อมูลใน form */
   const [form, setForm] = useState<RoundFormData>(EMPTY_FORM)
 
@@ -186,22 +192,34 @@ export default function RoundsPage() {
   // Status actions — เปลี่ยนสถานะรอบหวย
   // ---------------------------------------------------------------------------
 
-  /** เปลี่ยนสถานะรอบหวย (upcoming→open, open→closed) — มี confirm ก่อน */
-  const changeStatus = async (id: number, newStatus: string) => {
-    // ข้อความ confirm ต่างกันตาม action
-    const msgs: Record<string, string> = {
-      open: `ยืนยันเปิดรับแทงรอบ #${id}?`,
-      closed: `ยืนยันปิดรับแทงรอบ #${id}?\nหลังปิดแล้วสมาชิกจะไม่สามารถแทงรอบนี้ได้อีก`,
+  /** เปลี่ยนสถานะรอบหวย — เปิด confirm modal สวยๆ ก่อน */
+  const changeStatus = (id: number, newStatus: string) => {
+    const configs: Record<string, { title: string; message: string; type: 'warning' | 'danger' }> = {
+      open: {
+        title: 'เปิดรับแทง',
+        message: `ยืนยันเปิดรับแทงรอบ #${id}?\nสมาชิกจะสามารถแทงหวยรอบนี้ได้`,
+        type: 'warning',
+      },
+      closed: {
+        title: 'ปิดรับแทง',
+        message: `ยืนยันปิดรับแทงรอบ #${id}?\nหลังปิดแล้วสมาชิกจะไม่สามารถแทงรอบนี้ได้อีก`,
+        type: 'danger',
+      },
     }
-    if (!confirm(msgs[newStatus] || `ยืนยันเปลี่ยนสถานะรอบ #${id}?`)) return
+    const cfg = configs[newStatus] || { title: 'เปลี่ยนสถานะ', message: `ยืนยันเปลี่ยนสถานะรอบ #${id}?`, type: 'warning' as const }
 
-    try {
-      await roundMgmtApi.updateStatus(id, newStatus)
-      await loadRounds()
-    } catch (err) {
-      console.error('เปลี่ยนสถานะไม่สำเร็จ:', err)
-      alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ')
-    }
+    setConfirmDialog({
+      ...cfg,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await roundMgmtApi.updateStatus(id, newStatus)
+          await loadRounds()
+        } catch {
+          alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ')
+        }
+      },
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -611,6 +629,63 @@ export default function RoundsPage() {
                 }
               >
                 {submitting ? 'กำลังสร้าง...' : 'สร้างรอบหวย'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+       * CONFIRM DIALOG — modal สวยๆ แทน browser confirm()
+       * ═══════════════════════════════════════════════════════════════════ */}
+      {confirmDialog && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24,
+        }}>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '28px 24px', maxWidth: 380, width: '100%',
+            textAlign: 'center',
+          }}>
+            {/* Icon */}
+            <div style={{ fontSize: 40, marginBottom: 12 }}>
+              {confirmDialog.type === 'danger' ? '⚠️' : '🔔'}
+            </div>
+
+            {/* Title */}
+            <div style={{
+              fontSize: 16, fontWeight: 700, marginBottom: 8,
+              color: confirmDialog.type === 'danger' ? '#ef4444' : '#f5a623',
+            }}>
+              {confirmDialog.title}
+            </div>
+
+            {/* Message */}
+            <div style={{
+              fontSize: 13, color: 'var(--text-secondary)',
+              marginBottom: 24, lineHeight: 1.6, whiteSpace: 'pre-line',
+            }}>
+              {confirmDialog.message}
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="btn btn-secondary"
+                style={{ flex: 1, height: 38 }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className={confirmDialog.type === 'danger' ? 'btn btn-danger' : 'btn btn-primary'}
+                style={{ flex: 1, height: 38, fontWeight: 600 }}
+              >
+                ยืนยัน
               </button>
             </div>
           </div>
