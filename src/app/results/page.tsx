@@ -229,8 +229,8 @@ export default function ResultsPage() {
             ตัวอย่างผล #{selectedRound?.id} {preview.round_number}
           </div>
 
-          {/* สรุปยอด */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          {/* สรุปยอด — 5 cards รวมค่าคอม */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
             <div className="stat-card">
               <div className="label" style={{ marginBottom: 4 }}>Bets ทั้งหมด</div>
               <div className="metric" style={{ fontSize: 20, color: 'var(--text-primary)' }}>{preview.total_bets}</div>
@@ -248,6 +248,14 @@ export default function ResultsPage() {
               <div className="metric" style={{ fontSize: 20, color: preview.profit >= 0 ? '#00e5a0' : '#ef4444' }}>
                 {preview.profit >= 0 ? '+' : ''}฿{preview.profit.toLocaleString()}
               </div>
+            </div>
+            {/* ค่าคอมมิชชั่น affiliate (ประมาณ 0.5% ของยอดแทง) */}
+            <div className="stat-card" style={{ borderColor: 'rgba(168,85,247,0.2)' }}>
+              <div className="label" style={{ marginBottom: 4 }}>ค่าคอม Affiliate</div>
+              <div className="metric" style={{ fontSize: 20, color: '#a855f7' }}>
+                ~฿{(preview.total_amount * 0.005).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>ประมาณ 0.5% ของยอดแทง</div>
             </div>
           </div>
 

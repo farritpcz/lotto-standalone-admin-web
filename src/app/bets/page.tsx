@@ -13,12 +13,15 @@ import { betMgmtApi } from '@/lib/api'
 
 /* Bet interface */
 interface Bet {
-  id: number; number: string; amount: number; rate: number
+  id: number; member_id?: number; number: string; amount: number; rate: number
   status: string; win_amount: number; created_at: string
-  member?: { username: string }
+  member?: { id?: number; username: string }
   bet_type?: { name: string; code: string }
   lottery_round?: { id: number; round_number: string }
 }
+
+/* Format เงิน .00 */
+const fmtMoney = (n: number) => `฿${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 /* Status → badge class mapping */
 const statusBadge: Record<string, { cls: string; label: string }> = {
@@ -94,15 +97,20 @@ export default function BetsPage() {
                 const st = statusBadge[b.status] || statusBadge.pending
                 return (
                   <tr key={b.id}>
-                    <td>{b.member?.username || '—'}</td>
+                    <td>
+                      <a href={`/members/${b.member?.id || b.member_id}`} target="_blank" rel="noopener"
+                        style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                        {b.member?.username || '—'}
+                      </a>
+                    </td>
                     <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{b.number}</td>
                     <td className="secondary" style={{ fontSize: 12 }}>{b.bet_type?.name}</td>
                     <td className="secondary mono" style={{ fontSize: 12 }}>#{b.lottery_round?.id} {b.lottery_round?.round_number}</td>
-                    <td className="mono" style={{ textAlign: 'right' }}>฿{b.amount.toLocaleString()}</td>
+                    <td className="mono" style={{ textAlign: 'right' }}>{fmtMoney(b.amount)}</td>
                     <td className="mono secondary" style={{ textAlign: 'right' }}>x{b.rate}</td>
                     <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
                     <td className="mono" style={{ textAlign: 'right', color: b.win_amount > 0 ? 'var(--status-success)' : 'var(--text-tertiary)' }}>
-                      {b.win_amount > 0 ? `+฿${b.win_amount.toLocaleString()}` : '—'}
+                      {b.win_amount > 0 ? `+${fmtMoney(b.win_amount)}` : '—'}
                     </td>
                     <td className="secondary" style={{ textAlign: 'right', fontSize: 12 }}>
                       {new Date(b.created_at).toLocaleString('th-TH')}

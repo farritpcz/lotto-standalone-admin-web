@@ -16,6 +16,9 @@ interface Tx {
   created_at: string; member_id: number
 }
 
+/* Format เงิน .00 */
+const fmtMoney = (n: number) => `฿${Math.abs(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
 /* Type → badge */
 const typeBadge: Record<string, { cls: string; label: string }> = {
   deposit:  { cls: 'badge-success', label: 'ฝาก' },
@@ -92,18 +95,23 @@ export default function TransactionsPage() {
                   <tr key={tx.id}>
                     <td className="mono secondary">#{tx.id}</td>
                     <td><span className={`badge ${tb.cls}`}>{tb.label}</span></td>
-                    <td className="secondary">ID:{tx.member_id}</td>
+                    <td>
+                      <a href={`/members/${tx.member_id}`} target="_blank" rel="noopener"
+                        style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                        ID:{tx.member_id}
+                      </a>
+                    </td>
                     <td className="mono" style={{
                       textAlign: 'right', fontWeight: 600,
                       color: tx.amount >= 0 ? 'var(--status-success)' : 'var(--status-error)',
                     }}>
-                      {tx.amount >= 0 ? '+' : ''}฿{Math.abs(tx.amount).toLocaleString()}
+                      {tx.amount >= 0 ? '+' : '-'}{fmtMoney(tx.amount)}
                     </td>
                     <td className="mono secondary" style={{ textAlign: 'right', fontSize: 12 }}>
-                      ฿{tx.balance_before.toLocaleString()}
+                      {fmtMoney(tx.balance_before)}
                     </td>
                     <td className="mono" style={{ textAlign: 'right', fontSize: 12 }}>
-                      ฿{tx.balance_after.toLocaleString()}
+                      {fmtMoney(tx.balance_after)}
                     </td>
                     <td className="secondary" style={{ textAlign: 'right', fontSize: 12 }}>
                       {new Date(tx.created_at).toLocaleString('th-TH')}

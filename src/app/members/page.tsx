@@ -221,8 +221,25 @@ export default function MembersPage() {
                     {/* ID */}
                     <td className="secondary mono">{m.id}</td>
 
-                    {/* Username — สีหลัก เด่นชัด */}
-                    <td style={{ fontWeight: 500 }}>{m.username}</td>
+                    {/* Username — คลิกเปิดหน้ารายละเอียดใน tab ใหม่ */}
+                    <td style={{ fontWeight: 500 }}>
+                      <a
+                        href={`/members/${m.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          color: 'var(--accent-text)',
+                          textDecoration: 'none',
+                          borderBottom: '1px solid transparent',
+                          transition: 'border-color 0.15s ease',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.borderBottomColor = 'var(--accent-text)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderBottomColor = 'transparent')}
+                      >
+                        {m.username}
+                      </a>
+                    </td>
 
                     {/* เบอร์โทร */}
                     <td className="secondary">{m.phone || '—'}</td>
@@ -232,7 +249,7 @@ export default function MembersPage() {
 
                     {/* ยอดเงิน — monospace, สีเขียว */}
                     <td className="mono" style={{ textAlign: 'right', color: 'var(--accent-text)' }}>
-                      ฿{m.balance?.toLocaleString() || '0'}
+                      ฿{(m.balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Badge สถานะ */}
@@ -394,7 +411,7 @@ export default function MembersPage() {
                     ยอดเงินคงเหลือ
                   </span>
                   <span className="metric" style={{ color: 'var(--accent-text)' }}>
-                    ฿{selectedMember.balance?.toLocaleString() || '0'}
+                    ฿{(selectedMember.balance || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
