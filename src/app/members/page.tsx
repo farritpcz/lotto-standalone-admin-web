@@ -46,9 +46,9 @@ interface MemberDetail {
   balance: number
   status: string
   created_at: string
-  // ข้อมูลธนาคาร
-  bank_name?: string
-  bank_account_no?: string
+  // ข้อมูลธนาคาร (field names ตรงกับ API response)
+  bank_code?: string
+  bank_account_number?: string
   bank_account_name?: string
   // ผู้แนะนำ (referral)
   referred_by?: number
@@ -406,8 +406,8 @@ export default function MembersPage() {
                     gridTemplateColumns: '1fr 1fr',
                     gap: '10px 16px',
                   }}>
-                    <DetailField label="ธนาคาร" value={selectedMember.bank_name || '—'} />
-                    <DetailField label="เลขบัญชี" value={selectedMember.bank_account_no || '—'} mono />
+                    <DetailField label="ธนาคาร" value={selectedMember.bank_code || '—'} />
+                    <DetailField label="เลขบัญชี" value={selectedMember.bank_account_number || '—'} mono />
                     <DetailField label="ชื่อบัญชี" value={selectedMember.bank_account_name || '—'} />
                   </div>
                 </div>
