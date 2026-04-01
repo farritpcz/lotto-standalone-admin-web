@@ -49,9 +49,14 @@ export default function ResultsPage() {
   const [resultPage, setResultPage] = useState(1)
   const [resultTotal, setResultTotal] = useState(0)
 
-  // ── Preview state ────────────────────────────────────────────────────────────
+  // ── Preview state (สำหรับ form กรอกผล) ──────────────────────────────────────
   const [previewing, setPreviewing] = useState(false)
   const [preview, setPreview] = useState<PreviewData | null>(null)
+
+  // ── Result detail modal (คลิกดูรายละเอียดผลที่กรอกไปแล้ว) ────────────────
+  const [detailRound, setDetailRound] = useState<Round | null>(null)
+  const [detailData, setDetailData] = useState<PreviewData | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   // ── Fetch data ───────────────────────────────────────────────────────────────
   const fetchRounds = () => {
@@ -68,6 +73,25 @@ export default function ResultsPage() {
         setResultTotal(res.data.data?.total || 0)
       })
       .catch(() => {})
+  }
+
+  // ── ดูรายละเอียดรอบที่ออกผลไปแล้ว ──────────────────────────────────────────
+  const openResultDetail = async (round: Round) => {
+    if (!round.result_top3) return
+    setDetailRound(round)
+    setDetailLoading(true)
+    try {
+      // ใช้ preview API กับ bets ที่ settled แล้ว — API จะดึง won/lost bets
+      const res = await resultMgmtApi.preview(round.id, {
+        top3: round.result_top3,
+        top2: round.result_top2 || round.result_top3.slice(-2),
+        bottom2: round.result_bottom2 || '',
+      })
+      setDetailData(res.data.data)
+    } catch {
+      // ถ้า preview ไม่ได้ (bets settled แล้ว) → ดึง bets ที่ won
+      setDetailData(null)
+    } finally { setDetailLoading(false) }
   }
 
   useEffect(() => { fetchRounds() }, [])
@@ -299,7 +323,7 @@ export default function ResultsPage() {
             </thead>
             <tbody>
               {results.map(r => (
-                <tr key={r.id}>
+                <tr key={r.id} onClick={() => openResultDetail(r)} style={{ cursor: 'pointer' }}>
                   <td>{r.lottery_type?.name}</td>
                   <td className="mono secondary">{r.round_number}</td>
                   <td className="mono" style={{ textAlign: 'center', color: '#f5a623', fontWeight: 700, fontSize: 16 }}>{r.result_top3}</td>
@@ -319,6 +343,116 @@ export default function ResultsPage() {
           </div>
         )}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+       * MODAL: รายละเอียดผลรางวัล — คลิกจากตาราง "ผลรางวัลล่าสุด"
+       * แสดง: ผลที่ออก, ใครถูกบ้าง, จ่ายเท่าไร, กำไร/ขาดทุน
+       * ════════════════════════════════════════════════════════════════════ */}
+      {detailRound && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 700, maxHeight: '85vh', overflow: 'auto' }}>
+
+            {/* Header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {detailRound.lottery_type?.name} — รอบ {detailRound.round_number}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>รายละเอียดผลรางวัล</div>
+              </div>
+              <button onClick={() => { setDetailRound(null); setDetailData(null) }} className="btn btn-ghost" style={{ fontSize: 18 }}>✕</button>
+            </div>
+
+            {/* ผลที่ออก */}
+            <div style={{ padding: '16px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
+              {[
+                { label: '3 ตัวบน', value: detailRound.result_top3, color: '#f5a623' },
+                { label: '2 ตัวบน', value: detailRound.result_top2, color: '#00e5a0' },
+                { label: '2 ตัวล่าง', value: detailRound.result_bottom2, color: '#3b82f6' },
+              ].map(r => (
+                <div key={r.label} style={{ textAlign: 'center' }}>
+                  <div className="label" style={{ marginBottom: 4 }}>{r.label}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 800, color: r.color }}>{r.value || '—'}</div>
+                </div>
+              ))}
+            </div>
+
+            {detailLoading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+            ) : detailData ? (
+              <>
+                {/* สรุป */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, padding: '0 20px 16px' }}>
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                    <div className="label" style={{ fontSize: 10, marginBottom: 2 }}>Bets</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700 }}>{detailData.total_bets}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                    <div className="label" style={{ fontSize: 10, marginBottom: 2 }}>ยอดแทง</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: '#a855f7' }}>฿{detailData.total_amount.toLocaleString()}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                    <div className="label" style={{ fontSize: 10, marginBottom: 2 }}>จ่ายรางวัล</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: '#ef4444' }}>฿{detailData.total_payout.toLocaleString()}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                    <div className="label" style={{ fontSize: 10, marginBottom: 2 }}>กำไร</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: detailData.profit >= 0 ? '#00e5a0' : '#ef4444' }}>
+                      {detailData.profit >= 0 ? '+' : ''}฿{detailData.profit.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ตารางคนถูกรางวัล */}
+                {detailData.winners && detailData.winners.length > 0 ? (
+                  <div style={{ padding: '0 20px 20px' }}>
+                    <div className="label" style={{ marginBottom: 8 }}>ผู้ถูกรางวัล ({detailData.winner_count} รายการ)</div>
+                    <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>สมาชิก</th>
+                            <th>เลข</th>
+                            <th>ประเภท</th>
+                            <th style={{ textAlign: 'right' }}>เดิมพัน</th>
+                            <th style={{ textAlign: 'right' }}>Rate</th>
+                            <th style={{ textAlign: 'right' }}>จ่าย</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailData.winners.map((w, i) => (
+                            <tr key={i}>
+                              <td>{w.username || `ID:${w.member_id}`}</td>
+                              <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{w.number}</td>
+                              <td className="secondary" style={{ fontSize: 12 }}>{w.bet_type}</td>
+                              <td className="mono" style={{ textAlign: 'right' }}>฿{w.amount.toLocaleString()}</td>
+                              <td className="mono secondary" style={{ textAlign: 'right' }}>x{w.rate}</td>
+                              <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>฿{w.payout.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '16px 20px 20px', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                    ไม่มีใครถูกรางวัลในรอบนี้
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ padding: '20px', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                ไม่สามารถโหลดรายละเอียดได้
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => { setDetailRound(null); setDetailData(null) }} className="btn btn-secondary" style={{ width: '100%' }}>ปิด</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
