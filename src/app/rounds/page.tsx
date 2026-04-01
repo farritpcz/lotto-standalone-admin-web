@@ -264,16 +264,25 @@ export default function RoundsPage() {
   /** จำนวนหน้าทั้งหมด */
   const totalPages = Math.ceil(total / PER_PAGE)
 
-  /** Format datetime → ภาษาไทย */
-  const formatThaiDate = (dateStr: string) => {
+  /** Format datetime → "2026-04-16 14:30" (ไม่มี T และ timezone) */
+  const fmtDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleString('th-TH', {
-        day: '2-digit',
-        month: 'short',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      const d = new Date(dateStr)
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mi = String(d.getMinutes()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+    } catch {
+      return dateStr
+    }
+  }
+
+  /** Format date only → "2026-04-16" */
+  const fmtDateOnly = (dateStr: string) => {
+    try {
+      return fmtDate(dateStr).split(' ')[0]
     } catch {
       return dateStr
     }
@@ -369,16 +378,16 @@ export default function RoundsPage() {
                     <td className="mono">{r.round_number}</td>
 
                     {/* วันที่ออกผล */}
-                    <td className="secondary">{r.round_date}</td>
+                    <td className="secondary">{fmtDateOnly(r.round_date)}</td>
 
                     {/* เวลาเปิดรับ */}
                     <td className="secondary" style={{ fontSize: '12px' }}>
-                      {formatThaiDate(r.open_time)}
+                      {fmtDate(r.open_time)}
                     </td>
 
                     {/* เวลาปิดรับ */}
                     <td className="secondary" style={{ fontSize: '12px' }}>
-                      {formatThaiDate(r.close_time)}
+                      {fmtDate(r.close_time)}
                     </td>
 
                     {/* สถานะ badge */}
