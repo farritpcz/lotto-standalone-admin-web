@@ -186,11 +186,17 @@ export default function RoundsPage() {
   // Status actions — เปลี่ยนสถานะรอบหวย
   // ---------------------------------------------------------------------------
 
-  /** เปลี่ยนสถานะรอบหวย (upcoming→open, open→closed) */
+  /** เปลี่ยนสถานะรอบหวย (upcoming→open, open→closed) — มี confirm ก่อน */
   const changeStatus = async (id: number, newStatus: string) => {
+    // ข้อความ confirm ต่างกันตาม action
+    const msgs: Record<string, string> = {
+      open: `ยืนยันเปิดรับแทงรอบ #${id}?`,
+      closed: `ยืนยันปิดรับแทงรอบ #${id}?\nหลังปิดแล้วสมาชิกจะไม่สามารถแทงรอบนี้ได้อีก`,
+    }
+    if (!confirm(msgs[newStatus] || `ยืนยันเปลี่ยนสถานะรอบ #${id}?`)) return
+
     try {
       await roundMgmtApi.updateStatus(id, newStatus)
-      // reload ข้อมูลหลังเปลี่ยนสถานะ
       await loadRounds()
     } catch (err) {
       console.error('เปลี่ยนสถานะไม่สำเร็จ:', err)
