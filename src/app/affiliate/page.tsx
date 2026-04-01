@@ -50,6 +50,11 @@ export default function AffiliatePage() {
   const [report, setReport] = useState<AffiliateReportRow[]>([])
   const [loadingReport, setLoadingReport] = useState(true)
 
+  // ── State: pagination สำหรับตาราง commission report ─────────────────────────
+  const PER_PAGE = 20
+  const [reportPage, setReportPage] = useState(1)
+  const [reportTotal, setReportTotal] = useState(0)
+
   // ── โหลดข้อมูลตอน mount ───────────────────────────────────────────────────────
   useEffect(() => {
     // โหลด settings + lottery types พร้อมกัน
@@ -58,12 +63,30 @@ export default function AffiliatePage() {
       lotteryMgmtApi.list().then(res => setLotteryTypes(res.data.data || [])),
     ]).catch(() => {}).finally(() => setLoadingSettings(false))
 
-    // โหลด commission report
-    affiliateApi.getReport()
-      .then(res => setReport(res.data.data || []))
+    // โหลด commission report ครั้งแรก
+    loadReport()
+  }, [])
+
+  // ── โหลด commission report — ส่ง page + per_page ไปให้ API ────────────────
+  const loadReport = () => {
+    setLoadingReport(true)
+    affiliateApi.getReport({ page: reportPage, per_page: PER_PAGE })
+      .then(res => {
+        const data = res.data.data
+        if (Array.isArray(data)) {
+          setReport(data)
+          setReportTotal(data.length)
+        } else {
+          setReport(data?.items || [])
+          setReportTotal(data?.total || 0)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingReport(false))
-  }, [])
+  }
+
+  /* เมื่อเปลี่ยนหน้า report ให้โหลดใหม่ */
+  useEffect(() => { loadReport() }, [reportPage])
 
   // ── Submit form ───────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -350,6 +373,15 @@ export default function AffiliatePage() {
                 ))}
               </tbody>
             </table>
+          )}
+
+          {/* ── Pagination — แบ่งหน้าตาราง commission report ──────────────── */}
+          {reportTotal > PER_PAGE && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, paddingBottom: 16 }}>
+              <button onClick={() => setReportPage(p => Math.max(1, p-1))} disabled={reportPage === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+              <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {reportPage} / {Math.ceil(reportTotal / PER_PAGE)}</span>
+              <button onClick={() => setReportPage(p => p+1)} disabled={report.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+            </div>
           )}
         </div>
       </section>

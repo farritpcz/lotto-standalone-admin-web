@@ -28,6 +28,11 @@ export default function ResultsPage() {
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<Round[]>([])
 
+  /* state สำหรับ pagination ของตารางผลล่าสุด */
+  const PER_PAGE = 20
+  const [resultPage, setResultPage] = useState(1)
+  const [resultTotal, setResultTotal] = useState(0)
+
   /* โหลดรอบที่รอกรอกผล (closed) */
   const fetchRounds = () => {
     roundMgmtApi.list({ status: 'closed', per_page: 50 })
@@ -36,14 +41,18 @@ export default function ResultsPage() {
       .finally(() => setLoading(false))
   }
 
-  /* โหลดผลล่าสุด */
+  /* โหลดผลล่าสุด — ส่ง page + per_page ไปให้ API */
   const fetchResults = () => {
-    resultMgmtApi.list({ per_page: 20 })
-      .then(res => setResults(res.data.data?.items || []))
+    resultMgmtApi.list({ page: resultPage, per_page: PER_PAGE })
+      .then(res => {
+        setResults(res.data.data?.items || [])
+        setResultTotal(res.data.data?.total || 0)
+      })
       .catch(() => {})
   }
 
-  useEffect(() => { fetchRounds(); fetchResults() }, [])
+  useEffect(() => { fetchRounds() }, [])
+  useEffect(() => { fetchResults() }, [resultPage])
 
   /* กรอกผล */
   const handleSubmit = async () => {
@@ -192,6 +201,15 @@ export default function ResultsPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* ── Pagination — แบ่งหน้าแสดงผลรางวัล ─────────────────────────── */}
+        {resultTotal > PER_PAGE && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setResultPage(p => Math.max(1, p-1))} disabled={resultPage === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {resultPage} / {Math.ceil(resultTotal / PER_PAGE)}</span>
+            <button onClick={() => setResultPage(p => p+1)} disabled={results.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+          </div>
         )}
       </div>
     </div>

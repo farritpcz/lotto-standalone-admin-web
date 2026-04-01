@@ -72,7 +72,7 @@ export const memberMgmtApi = {
 
 // Lotteries
 export const lotteryMgmtApi = {
-  list: () => api.get('/lotteries'),
+  list: (params?: Record<string, unknown>) => api.get('/lotteries', { params }),
   create: (data: Record<string, unknown>) => api.post('/lotteries', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/lotteries/${id}`, data),
 }
@@ -167,7 +167,7 @@ export const affiliateApi = {
   deleteSetting: (id: number) => api.delete(`/affiliate/settings/${id}`),
 
   /** รายงาน commission: referrer ทุกคน + ยอดรวม + ยอด pending */
-  getReport: () => api.get('/affiliate/report'),
+  getReport: (params?: Record<string, unknown>) => api.get('/affiliate/report', { params }),
 }
 
 // TypeScript types สำหรับ affiliate

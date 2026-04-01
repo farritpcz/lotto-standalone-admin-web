@@ -81,6 +81,9 @@ const EMPTY_FORM: LotteryFormData = {
   description: '',
 }
 
+/* จำนวนรายการต่อหน้า (pagination) */
+const PER_PAGE = 20
+
 // =============================================================================
 // Component หลัก — LotteriesPage
 // =============================================================================
@@ -94,6 +97,10 @@ export default function LotteriesPage() {
 
   /** กำลังโหลดข้อมูลหรือไม่ */
   const [loading, setLoading] = useState(true)
+
+  /** state สำหรับ pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด */
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
   /** แสดง modal form หรือไม่ */
   const [showModal, setShowModal] = useState(false)
@@ -111,21 +118,28 @@ export default function LotteriesPage() {
   // Data fetching — โหลดข้อมูลจาก API
   // ---------------------------------------------------------------------------
 
-  /** โหลดรายการประเภทหวยทั้งหมด */
+  /** โหลดรายการประเภทหวย — ส่ง page + per_page ไปให้ API */
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await lotteryMgmtApi.list()
-      // API คืน data.data เป็น array ของ lottery types
-      setTypes(res.data.data || [])
+      const res = await lotteryMgmtApi.list({ page, per_page: PER_PAGE })
+      // API อาจคืน data.data เป็น array หรือ { items, total }
+      const data = res.data.data
+      if (Array.isArray(data)) {
+        setTypes(data)
+        setTotal(data.length)
+      } else {
+        setTypes(data?.items || [])
+        setTotal(data?.total || 0)
+      }
     } catch (err) {
       console.error('โหลดประเภทหวยไม่สำเร็จ:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  /** โหลดข้อมูลครั้งแรกเมื่อ mount */
+  /** โหลดข้อมูลครั้งแรกเมื่อ mount + เมื่อเปลี่ยนหน้า */
   useEffect(() => { loadData() }, [loadData])
 
   // ---------------------------------------------------------------------------
@@ -306,6 +320,15 @@ export default function LotteriesPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
+        {total > PER_PAGE && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
+            <button onClick={() => setPage(p => p+1)} disabled={types.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+          </div>
         )}
       </div>
 

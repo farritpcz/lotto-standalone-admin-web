@@ -82,6 +82,9 @@ const BET_TYPE_LABELS: Record<string, string> = Object.fromEntries(
   BET_TYPES.map(bt => [bt.id, bt.label])
 )
 
+/* จำนวนรายการต่อหน้า (pagination) */
+const PER_PAGE = 20
+
 // =============================================================================
 // COMPONENT — BansPage
 // =============================================================================
@@ -90,6 +93,10 @@ export default function BansPage() {
   const [bans, setBans] = useState<Ban[]>([])
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
   const [loading, setLoading] = useState(true)
+
+  // ----- State: pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด -----
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
   // ----- State: Modal เพิ่มเลขอั้น -----
   const [showModal, setShowModal] = useState(false)
@@ -106,14 +113,17 @@ export default function BansPage() {
   // ----- State: Feedback messages -----
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // ===== โหลดข้อมูลเลขอั้น =====
+  // ===== โหลดข้อมูลเลขอั้น — ส่ง page + per_page ไปให้ API =====
   const loadBans = useCallback(() => {
     setLoading(true)
-    banMgmtApi.list()
-      .then(res => setBans(res.data.data?.items || res.data.data || []))
+    banMgmtApi.list({ page, per_page: PER_PAGE })
+      .then(res => {
+        setBans(res.data.data?.items || res.data.data || [])
+        setTotal(res.data.data?.total || 0)
+      })
       .catch(() => setMessage({ type: 'error', text: 'โหลดข้อมูลเลขอั้นไม่สำเร็จ' }))
       .finally(() => setLoading(false))
-  }, [])
+  }, [page])
 
   // ===== โหลดประเภทหวย (สำหรับ dropdown) =====
   const loadLotteryTypes = useCallback(() => {
@@ -306,6 +316,15 @@ export default function BansPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
+        {total > PER_PAGE && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
+            <button onClick={() => setPage(p => p+1)} disabled={bans.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+          </div>
         )}
       </div>
 

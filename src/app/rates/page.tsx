@@ -20,18 +20,35 @@ interface Rate {
   lottery_type?: { name: string }
 }
 
+/* จำนวนรายการต่อหน้า (pagination) */
+const PER_PAGE = 20
+
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<number | null>(null) // track ว่ากำลัง save rate ไหน
 
-  /* โหลดข้อมูล */
+  /* state สำหรับ pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด */
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+
+  /* โหลดข้อมูล — ส่ง page + per_page ไปให้ API */
   useEffect(() => {
-    rateMgmtApi.list()
-      .then(res => setRates(res.data.data || []))
+    setLoading(true)
+    rateMgmtApi.list({ page, per_page: PER_PAGE })
+      .then(res => {
+        const data = res.data.data
+        if (Array.isArray(data)) {
+          setRates(data)
+          setTotal(data.length)
+        } else {
+          setRates(data?.items || [])
+          setTotal(data?.total || 0)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [page])
 
   /* อัพเดท rate (inline edit) */
   const updateRate = async (id: number, field: string, value: number) => {
@@ -117,6 +134,15 @@ export default function RatesPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
+        {total > PER_PAGE && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
+            <button onClick={() => setPage(p => p+1)} disabled={rates.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+          </div>
         )}
       </div>
     </div>

@@ -31,22 +31,34 @@ interface DepositRow {
   amount: number; status: string; created_at: string
 }
 
+/* จำนวนรายการต่อหน้า (pagination) */
+const PER_PAGE = 20
+
 export default function DepositsPage() {
   const [rows, setRows] = useState<DepositRow[]>([])
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
 
-  /* โหลดข้อมูล */
+  /* state สำหรับ pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด */
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+
+  /* โหลดข้อมูล — ส่ง page + per_page ไปให้ API */
   const fetchData = () => {
     setLoading(true)
-    depositApi.list({ status: filter || undefined, per_page: 50 })
-      .then(res => setRows(res.data.data?.items || []))
+    depositApi.list({ status: filter || undefined, page, per_page: PER_PAGE })
+      .then(res => {
+        setRows(res.data.data?.items || [])
+        setTotal(res.data.data?.total || 0)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchData() }, [filter])
+  /* เมื่อเปลี่ยน filter ให้ reset กลับหน้า 1 */
+  useEffect(() => { setPage(1) }, [filter])
+  useEffect(() => { fetchData() }, [filter, page])
 
   /* อนุมัติ */
   const handleApprove = async (id: number) => {
@@ -150,6 +162,15 @@ export default function DepositsPage() {
               })}
             </tbody>
           </table>
+        )}
+
+        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
+        {total > PER_PAGE && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
+            <button onClick={() => setPage(p => p+1)} disabled={rows.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+          </div>
         )}
       </div>
     </div>
