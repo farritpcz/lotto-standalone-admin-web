@@ -41,15 +41,16 @@ export default function TransactionsPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    txMgmtApi.list({ page, per_page: 30, type: typeFilter || undefined })
+    txMgmtApi.list({ page, per_page: 30, type: typeFilter || undefined, q: search || undefined })
       .then(res => { setTxns(res.data.data?.items || []); setTotal(res.data.data?.total || 0) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [page, typeFilter])
+  }, [page, typeFilter, search])
 
   return (
     <div className="page-container">
@@ -58,8 +59,8 @@ export default function TransactionsPage() {
         <span className="label">{total} รายการ</span>
       </div>
 
-      {/* Filter */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+      {/* Filter + Search */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filters.map(f => (
           <button key={f.key} onClick={() => { setTypeFilter(f.key); setPage(1) }}
             className={typeFilter === f.key ? 'btn btn-primary' : 'btn btn-ghost'}
@@ -67,6 +68,9 @@ export default function TransactionsPage() {
             {f.label}
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="ค้นหา member ID..." className="input" style={{ width: 200, height: 32 }} />
       </div>
 
       {/* Table */}

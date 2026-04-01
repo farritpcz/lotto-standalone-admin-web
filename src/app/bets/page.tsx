@@ -43,15 +43,16 @@ export default function BetsPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    betMgmtApi.list({ page, per_page: 30, status: status || undefined })
+    betMgmtApi.list({ page, per_page: 30, status: status || undefined, q: search || undefined })
       .then(res => { setBets(res.data.data?.items || []); setTotal(res.data.data?.total || 0) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [page, status])
+  }, [page, status, search])
 
   return (
     <div className="page-container">
@@ -60,8 +61,8 @@ export default function BetsPage() {
         <span className="label">{total} รายการ</span>
       </div>
 
-      {/* Filter */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+      {/* Filter + Search */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filters.map(f => (
           <button key={f.key} onClick={() => { setStatus(f.key); setPage(1) }}
             className={status === f.key ? 'btn btn-primary' : 'btn btn-ghost'}
@@ -69,6 +70,9 @@ export default function BetsPage() {
             {f.label}
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="ค้นหา username / เลข..." className="input" style={{ width: 200, height: 32 }} />
       </div>
 
       {/* Table */}
