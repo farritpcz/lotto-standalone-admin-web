@@ -530,7 +530,6 @@ export default function CMSPage() {
               </div>
             </div>)
           })()}
-          )}
         </>
       )}
 
