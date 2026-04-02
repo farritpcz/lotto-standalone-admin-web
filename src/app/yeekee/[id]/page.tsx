@@ -31,6 +31,26 @@ interface BetSummary {
   winner_count: number
 }
 
+interface BetItem {
+  id: number
+  member_id: number
+  number: string
+  amount: number
+  rate: number
+  status: string
+  win_amount: number
+  created_at: string
+  settled_at?: string
+  member?: { id: number; username: string }
+  bet_type?: { id: number; name: string; code: string }
+}
+
+const betStatusLabels: Record<string, { label: string; color: string }> = {
+  pending: { label: 'รอผล', color: 'badge-warning' },
+  won:     { label: 'ชนะ', color: 'badge-success' },
+  lost:    { label: 'แพ้', color: 'badge-error' },
+}
+
 export default function YeekeeDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -38,6 +58,7 @@ export default function YeekeeDetailPage() {
 
   const [round, setRound] = useState<YeekeeRound | null>(null)
   const [shoots, setShoots] = useState<YeekeeShoot[]>([])
+  const [bets, setBets] = useState<BetItem[]>([])
   const [betSummary, setBetSummary] = useState<BetSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -47,6 +68,7 @@ export default function YeekeeDetailPage() {
       const data = res.data?.data
       setRound(data?.round || null)
       setShoots(data?.shoots || [])
+      setBets(data?.bets || [])
       setBetSummary(data?.bet_summary || null)
     } catch (err) {
       console.error('Failed to fetch yeekee round:', err)
@@ -143,6 +165,52 @@ export default function YeekeeDetailPage() {
             </div>
           </>
         )}
+      </div>
+
+      {/* Bets Table — ⭐ บิลที่แทงเข้ามา */}
+      <div className="card-surface mb-6">
+        <div className="p-4 border-b border-[var(--border-color)]">
+          <h2 className="text-lg font-semibold">บิลที่แทง ({bets.length} รายการ)</h2>
+        </div>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>สมาชิก</th>
+              <th>ประเภท</th>
+              <th>เลข</th>
+              <th>จำนวน</th>
+              <th>เรท</th>
+              <th>สถานะ</th>
+              <th>รางวัล</th>
+              <th>เวลา</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bets.length === 0 ? (
+              <tr><td colSpan={9} className="text-center py-8 text-[var(--text-tertiary)]">ยังไม่มีบิลแทง</td></tr>
+            ) : (
+              bets.map((b, i) => {
+                const st = betStatusLabels[b.status] || { label: b.status, color: 'badge-neutral' }
+                return (
+                  <tr key={b.id}>
+                    <td className="text-[var(--text-tertiary)]">{i + 1}</td>
+                    <td>{b.member?.username || `#${b.member_id}`}</td>
+                    <td className="text-sm">{b.bet_type?.name || b.bet_type?.code || '-'}</td>
+                    <td className="font-mono font-bold text-yellow-400">{b.number}</td>
+                    <td>฿{b.amount.toLocaleString()}</td>
+                    <td className="text-sm">{b.rate}</td>
+                    <td><span className={`badge ${st.color}`}>{st.label}</span></td>
+                    <td className={b.win_amount > 0 ? 'text-green-400 font-bold' : ''}>
+                      {b.win_amount > 0 ? `฿${b.win_amount.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="text-sm">{formatTime(b.created_at)}</td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Shoots Table */}
