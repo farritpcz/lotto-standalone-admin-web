@@ -103,6 +103,11 @@ export default function CMSPage() {
   // ----- State: Lottery images -----
   const [lotteryImages, setLotteryImages] = useState<LotteryImage[]>([])
 
+  // ----- State: Lottery type images (จาก API จริง) -----
+  const [ltTypes, setLtTypes] = useState<{id:number;name:string;code:string;image_url:string}[]>([])
+  const [editingLtId, setEditingLtId] = useState<number|null>(null)
+  const [editUrl, setEditUrl] = useState('')
+
   // ----- State: Feedback + Confirm -----
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogProps | null>(null)
@@ -110,6 +115,11 @@ export default function CMSPage() {
 
   // ===== โหลดข้อมูลเริ่มต้น =====
   useEffect(() => { loadAllData() }, [])
+
+  // ===== โหลด lottery types สำหรับ tab รูปหวย =====
+  useEffect(() => {
+    api.get('/lotteries').then(res => setLtTypes(res.data.data || [])).catch(() => {})
+  }, [])
 
   // ===== ซ่อน message หลัง 3 วินาที =====
   useEffect(() => {
@@ -430,16 +440,6 @@ export default function CMSPage() {
              TAB: รูปประเภทหวย (Lottery Type Images)
              ══════════════════════════════════════════════════════════════ */}
           {activeTab === 'lottery-images' && (() => {
-            // ดึงจาก lotteries API จริง (ไม่ใช่ CMS mock)
-            const [ltTypes, setLtTypes] = useState<{id:number;name:string;code:string;image_url:string}[]>([])
-            const [editingLtId, setEditingLtId] = useState<number|null>(null)
-            const [editUrl, setEditUrl] = useState('')
-
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            useEffect(() => {
-              api.get('/lotteries').then(res => setLtTypes(res.data.data || [])).catch(() => {})
-            }, [])
-
             const saveImage = async (ltId: number) => {
               try {
                 await api.put(`/lotteries/${ltId}/image`, { image_url: editUrl })
