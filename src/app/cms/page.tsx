@@ -472,48 +472,31 @@ export default function CMSPage() {
                 {ltTypes.map(lt => (
                   <div key={lt.id} style={{
                     background: 'var(--bg-base)', border: '1px solid var(--border)',
-                    borderRadius: 12, overflow: 'hidden',
+                    borderRadius: 12, padding: 14,
                   }}>
-                    {/* Preview */}
-                    <div style={{
-                      width: '100%', height: 90,
-                      background: lt.image_url ? `url(${lt.image_url}) center/cover` : (gradients[lt.code] || 'var(--bg-elevated)'),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      position: 'relative',
-                    }}>
-                      {!lt.image_url && (
-                        <span style={{ fontSize: 36, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
-                          {lt.code === 'THAI' ? '🇹🇭' : lt.code === 'LAO' ? '🇱🇦' : lt.code === 'YEEKEE' ? '🎯' : '📈'}
-                        </span>
-                      )}
+                    {/* ชื่อ + code */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{lt.name}</div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{lt.code}</div>
+                        </div>
                       <span style={{
-                        position: 'absolute', top: 6, right: 6,
-                        fontSize: 9, padding: '2px 6px', borderRadius: 4,
-                        background: lt.image_url ? 'rgba(0,229,160,0.9)' : 'rgba(255,255,255,0.2)',
-                        color: lt.image_url ? '#000' : '#fff', fontWeight: 600,
+                        fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
+                        background: lt.image_url ? 'rgba(0,229,160,0.15)' : 'rgba(255,255,255,0.08)',
+                        color: lt.image_url ? 'var(--accent)' : 'var(--text-tertiary)',
                       }}>
                         {lt.image_url ? 'มีรูป' : 'ไม่มีรูป'}
                       </span>
                     </div>
-
-                    {/* Info + upload */}
-                    <div style={{ padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{lt.name}</div>
-                          <div className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{lt.code}</div>
-                        </div>
-                      </div>
-                      {/* Upload / เปลี่ยนรูป */}
-                      <ImageUpload
-                        folder="lottery"
-                        currentUrl={lt.image_url || ''}
-                        size="lg"
-                        onUploaded={async (url) => {
-                          await saveImage(lt.id, url)
-                        }}
-                      />
-                    </div>
+                    {/* Upload / เปลี่ยนรูป */}
+                    <ImageUpload
+                      folder="lottery"
+                      currentUrl={lt.image_url || ''}
+                      size="md"
+                      onUploaded={async (url) => {
+                        await saveImage(lt.id, url)
+                      }}
+                    />
                   </div>
                 ))}
               </div>

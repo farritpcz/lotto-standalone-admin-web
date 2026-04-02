@@ -85,12 +85,20 @@ export default function ImageUpload({ folder = 'general', currentUrl, onUploaded
         style={{
           width: dims.w, height: dims.h, borderRadius: 10, cursor: 'pointer',
           border: `2px dashed ${displayUrl ? 'transparent' : 'var(--border)'}`,
-          background: displayUrl ? `url(${displayUrl}) center/cover` : 'var(--bg-elevated)',
+          background: displayUrl ? 'var(--bg-base)' : 'var(--bg-elevated)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           gap: 4, position: 'relative', overflow: 'hidden',
           transition: 'border-color 0.2s',
         }}
       >
+        {/* แสดงรูปด้วย <img> tag — รองรับ SVG ได้ดี */}
+        {displayUrl && !uploading && (
+          <img src={displayUrl} alt="preview"
+            style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0 }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        )}
+
         {!displayUrl && !uploading && (
           <>
             <Upload size={20} color="var(--text-tertiary)" />
