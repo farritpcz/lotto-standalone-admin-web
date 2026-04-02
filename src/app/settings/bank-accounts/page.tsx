@@ -258,6 +258,19 @@ export default function BankAccountsPage() {
     })
   }
 
+  // ─── Toggle สถานะ บัญชี active/inactive ──────────────────────
+  const handleToggleStatus = async (acc: BankAccount) => {
+    const newStatus = acc.status === 'active' ? 'inactive' : 'active'
+    try {
+      await api.put(`/agent/bank-accounts/${acc.id}`, { status: newStatus })
+      loadAccounts()
+    } catch {
+      // mock: toggle ใน state
+      setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, status: newStatus } : a))
+    }
+    setMessage({ type: 'success', text: newStatus === 'active' ? 'เปิดใช้บัญชีแล้ว' : 'ปิดบัญชีแล้ว' })
+  }
+
   // ─── RKAUTO Handlers ─────────────────────────────────────────
   const handleRegisterRKAuto = async (acc: BankAccount) => {
     // ใช้ token จาก form ที่กรอกตอนเพิ่มบัญชี
@@ -415,11 +428,24 @@ export default function BankAccountsPage() {
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>มือ</span>
                     )}
                   </td>
-                  {/* สถานะ */}
+                  {/* สถานะ — toggle switch */}
                   <td>
-                    <span className={`badge ${acc.status === 'active' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 10 }}>
-                      {acc.status === 'active' ? 'ใช้งาน' : 'ปิด'}
-                    </span>
+                    <button
+                      onClick={() => handleToggleStatus(acc)}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                        background: acc.status === 'active' ? 'var(--accent)' : '#333',
+                        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                      }}
+                      title={acc.status === 'active' ? 'คลิกเพื่อปิด' : 'คลิกเพื่อเปิด'}
+                    >
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 9, background: 'white',
+                        position: 'absolute', top: 3,
+                        left: acc.status === 'active' ? 23 : 3,
+                        transition: 'left 0.2s',
+                      }} />
+                    </button>
                   </td>
                   {/* จัดการ: แก้ไข / RKAUTO / ลบ */}
                   <td style={{ textAlign: 'right' }}>
