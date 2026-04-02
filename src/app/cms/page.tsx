@@ -465,7 +465,7 @@ export default function CMSPage() {
                 รูปประเภทหวย ({ltTypes.length} ประเภท)
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                ใส่ URL รูปภาพ หรือ อัพโหลดไปที่ CDN แล้ววาง URL · แสดงในหน้าแทงหวยของสมาชิก
+                รูปภาพแสดงในหน้าเลือกหวยของสมาชิก · <span style={{ color: 'var(--accent)', fontWeight: 500 }}>แนะนำ: 200×200px, PNG/SVG, ไม่เกิน 500KB</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
