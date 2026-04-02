@@ -280,7 +280,7 @@ export default function ResultsPage() {
                   <tbody>
                     {preview.winners.map((w, i) => (
                       <tr key={i}>
-                        <td>{w.username || `ID:${w.member_id}`}</td>
+                        <td><a href={`/members/${w.member_id}`} target="_blank" rel="noopener" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{w.username || `ID:${w.member_id}`}</a></td>
                         <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{w.number}</td>
                         <td className="secondary" style={{ fontSize: 12 }}>{w.bet_type}</td>
                         <td className="mono" style={{ textAlign: 'right' }}>฿{w.amount.toLocaleString()}</td>
@@ -432,7 +432,7 @@ export default function ResultsPage() {
                         <tbody>
                           {detailData.winners.map((w, i) => (
                             <tr key={i}>
-                              <td>{w.username || `ID:${w.member_id}`}</td>
+                              <td><a href={`/members/${w.member_id}`} target="_blank" rel="noopener" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{w.username || `ID:${w.member_id}`}</a></td>
                               <td className="mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>{w.number}</td>
                               <td className="secondary" style={{ fontSize: 12 }}>{w.bet_type}</td>
                               <td className="mono" style={{ textAlign: 'right' }}>฿{w.amount.toLocaleString()}</td>

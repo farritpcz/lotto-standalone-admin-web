@@ -359,7 +359,7 @@ export default function AffiliatePage() {
                 {report.map(row => (
                   <tr key={row.member_id} className="hover:bg-gray-700/30 transition-colors">
                     <td className="px-5 py-3">
-                      <div className="text-white font-medium">{row.username}</div>
+                      <a href={`/members/${row.member_id}`} target="_blank" rel="noopener" className="text-white font-medium hover:underline">{row.username}</a>
                       <div className="text-gray-500 text-xs">ID: {row.member_id}</div>
                     </td>
                     <td className="px-5 py-3 text-right text-gray-300">{row.total_referred} คน</td>
