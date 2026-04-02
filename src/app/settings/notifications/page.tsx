@@ -43,10 +43,10 @@ interface NotifyGroup {
 /* สร้าง ID สำหรับกลุ่มใหม่ */
 const genId = () => Math.random().toString(36).slice(2, 8)
 
-/* Default enabled — เปิดทุกอัน */
+/* Default enabled — ปิดทุกอัน (ให้ admin เลือกเอง) */
 const defaultEnabled = () => {
   const e: Record<string, boolean> = {}
-  NOTIFY_POINTS.forEach(p => { e[p.key] = true })
+  NOTIFY_POINTS.forEach(p => { e[p.key] = false })
   return e
 }
 
