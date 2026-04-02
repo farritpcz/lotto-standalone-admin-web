@@ -56,17 +56,76 @@ const statusBadge: Record<string, { bg: string; color: string; label: string }> 
   rejected: { bg: 'rgba(239,68,68,0.15)',  color: '#ef4444', label: 'ปฏิเสธ' },
 }
 
+// ─── Date Filter Presets ────────────────────────────────────────────
+type FilterPreset = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'first_half' | 'second_half' | 'custom'
+
+function getPresetRange(preset: FilterPreset): { from: string; to: string; label: string } {
+  const now = new Date()
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
+
+  const today = fmt(now)
+  const yesterday = fmt(new Date(y, m, d - 1))
+  const weekStart = new Date(y, m, d - now.getDay()) // อาทิตย์
+  const monthFirst = new Date(y, m, 1)
+  const monthLast = new Date(y, m + 1, 0)
+
+  switch (preset) {
+    case 'today': return { from: today, to: today, label: 'วันนี้' }
+    case 'yesterday': return { from: yesterday, to: yesterday, label: 'เมื่อวาน' }
+    case 'this_week': return { from: fmt(weekStart), to: fmt(new Date(weekStart.getTime() + 6 * 86400000)), label: 'อาทิตย์นี้' }
+    case 'this_month': return { from: fmt(monthFirst), to: fmt(monthLast), label: 'เดือนนี้' }
+    case 'first_half': return { from: fmt(monthFirst), to: `${y}-${pad(m + 1)}-15`, label: 'ต้นเดือน (1-15)' }
+    case 'second_half': return { from: `${y}-${pad(m + 1)}-16`, to: fmt(monthLast), label: 'ท้ายเดือน (16-สิ้นเดือน)' }
+    default: return { from: fmt(monthFirst), to: fmt(monthLast), label: 'เดือนนี้' }
+  }
+}
+
+const presets: { key: FilterPreset; label: string }[] = [
+  { key: 'today', label: 'วันนี้' },
+  { key: 'yesterday', label: 'เมื่อวาน' },
+  { key: 'this_week', label: 'อาทิตย์นี้' },
+  { key: 'this_month', label: 'เดือนนี้' },
+  { key: 'first_half', label: 'ต้นเดือน' },
+  { key: 'second_half', label: 'ท้ายเดือน' },
+  { key: 'custom', label: 'กำหนดเอง' },
+]
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [txTab, setTxTab] = useState<'deposit' | 'withdraw'>('deposit')
 
-  const loadData = () => {
+  // ─── Date Filter State ───
+  const [activePreset, setActivePreset] = useState<FilterPreset>('this_month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+
+  const loadData = (preset?: FilterPreset, from?: string, to?: string) => {
+    const p = preset || activePreset
+    const range = p === 'custom' && from && to
+      ? { from, to }
+      : getPresetRange(p)
+
     setLoading(true)
-    api.get('/dashboard/v2')
+    api.get(`/dashboard/v2?from=${range.from}&to=${range.to}`)
       .then(res => setData(res.data.data))
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  const handlePreset = (p: FilterPreset) => {
+    setActivePreset(p)
+    if (p !== 'custom') {
+      loadData(p)
+    }
+  }
+
+  const handleCustomSearch = () => {
+    if (customFrom && customTo) {
+      loadData('custom', customFrom, customTo)
+    }
   }
 
   useEffect(() => { loadData() }, [])
@@ -112,12 +171,46 @@ export default function DashboardPage() {
 
   return (
     <div className="page-container">
-      {/* ═══ Header ════════════════════════════════════════════════════ */}
-      <div className="page-header" style={{ marginBottom: 20 }}>
-        <h1>ภาพรวมระบบ</h1>
-        <button className="btn btn-ghost" onClick={loadData} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* ═══ Header + Date Filter ════════════════════════════════════ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>ภาพรวมระบบ</h1>
+        <button className="btn btn-ghost" onClick={() => loadData()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={14} /> รีเฟรช
         </button>
+      </div>
+
+      {/* ── Date Filter Bar ──────────────────────────────────────── */}
+      <div className="card-surface" style={{ padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {presets.map(p => (
+          <button
+            key={p.key}
+            onClick={() => handlePreset(p.key)}
+            style={{
+              padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+              background: activePreset === p.key ? 'var(--accent)' : 'var(--bg-elevated)',
+              color: activePreset === p.key ? '#000' : 'var(--text-secondary)',
+              transition: 'all 0.15s',
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        {/* Custom date inputs */}
+        {activePreset === 'custom' && (
+          <>
+            <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 4px' }} />
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+              className="input" style={{ height: 30, fontSize: 12, width: 140, padding: '0 8px' }} />
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>ถึง</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+              className="input" style={{ height: 30, fontSize: 12, width: 140, padding: '0 8px' }} />
+            <button onClick={handleCustomSearch} className="btn btn-primary" style={{ height: 30, fontSize: 12, padding: '0 14px' }}>
+              ค้นหา
+            </button>
+          </>
+        )}
       </div>
 
       {/* ═══ Row 1: Top 4 Stat Cards ══════════════════════════════════ */}
