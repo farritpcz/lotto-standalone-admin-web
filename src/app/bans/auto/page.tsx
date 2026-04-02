@@ -11,7 +11,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { lotteryMgmtApi } from '@/lib/api'
+import { lotteryMgmtApi, autoBanApi, AutoBanRuleData } from '@/lib/api'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface AutoBanRule {
@@ -94,22 +94,31 @@ const fmtMoney = (n: number) => `฿${n.toLocaleString()}`
 export default function AutoBanPage() {
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
   const [selectedType, setSelectedType] = useState<LotteryType | null>(null)
-  const [rules, setRules] = useState<Record<string, AutoBanRule[]>>({})
+  const [dbRules, setDbRules] = useState<AutoBanRuleData[]>([]) // กฎจาก DB
   const [showModal, setShowModal] = useState(false)
   const [nextId, setNextId] = useState(100)
+  const [saving, setSaving] = useState(false)
 
   // ⭐ Auto-calculate state
   const [capital, setCapital] = useState('')
   const [maxLoss, setMaxLoss] = useState('')
 
-  // ⭐ โหลดกฎ + ทุน จาก localStorage ตอน mount
-  useEffect(() => {
-    const savedRules = loadRulesFromStorage()
-    setRules(savedRules)
-    // หา next ID จากกฎที่มีอยู่
-    const allIds = Object.values(savedRules).flat().map(r => r.id)
-    if (allIds.length > 0) setNextId(Math.max(...allIds) + 1)
+  // ⭐ โหลดกฎจาก API
+  const loadRules = useCallback(async () => {
+    try {
+      const params: Record<string, number> = {}
+      if (selectedType) params.lottery_type_id = selectedType.id
+      const res = await autoBanApi.list(params)
+      setDbRules(res.data?.data || [])
+    } catch { /* ignore */ }
+  }, [selectedType])
 
+  useEffect(() => {
+    if (selectedType) loadRules()
+  }, [selectedType, loadRules])
+
+  // โหลดทุนจาก localStorage (แค่ UI state ไม่ต้องเก็บ DB)
+  useEffect(() => {
     const savedCapital = loadCapitalFromStorage()
     setCapital(savedCapital.capital)
     setMaxLoss(savedCapital.maxLoss)
@@ -145,7 +154,8 @@ export default function AutoBanPage() {
       })
   }, [])
 
-  const currentRules = selectedType ? (rules[selectedType.code] || []) : []
+  // กฎของประเภทหวยที่เลือก (จาก DB)
+  const currentRules = dbRules.filter(r => !selectedType || r.lottery_type_id === selectedType.id)
 
   // ⭐ คำนวณ threshold อัตโนมัติจากทุน + ยอมเสีย
   const handleCalculate = useCallback(() => {
@@ -163,79 +173,63 @@ export default function AutoBanPage() {
     setShowPreview(true)
   }, [selectedType, maxLoss])
 
-  // ⭐ ยืนยัน — สร้างกฎอั้นทั้งหมดจาก preview
-  const handleApplyCalculated = useCallback(() => {
+  // ⭐ ยืนยัน — สร้างกฎอั้นทั้งหมด ผ่าน API (เก็บ DB)
+  const handleApplyCalculated = useCallback(async () => {
     if (!selectedType || previewRules.length === 0) return
+    setSaving(true)
+    try {
+      await autoBanApi.bulkCreate({
+        lottery_type_id: selectedType.id,
+        capital: Number(capital) || 0,
+        max_loss: Number(maxLoss) || 0,
+        rules: previewRules.map(pr => ({
+          bet_type: pr.betType,
+          threshold_amount: pr.threshold,
+          action: 'full_ban',
+          rate: pr.rate,
+        })),
+      })
+      setShowPreview(false)
+      setPreviewRules([])
+      saveCapitalToStorage(capital, maxLoss)
+      await loadRules()
+    } catch { /* ignore */ }
+    finally { setSaving(false) }
+  }, [selectedType, previewRules, capital, maxLoss, loadRules])
 
-    const newRules: AutoBanRule[] = previewRules.map((pr, i) => ({
-      id: nextId + i,
-      lottery_type_id: selectedType.id,
-      lottery_type_name: selectedType.name,
-      bet_type: pr.betType,
-      threshold_amount: pr.threshold,
-      action: 'full_ban' as const,
-      status: 'active' as const,
-    }))
-
-    setRules(prev => {
-      const updated = { ...prev, [selectedType.code]: [...(prev[selectedType.code] || []), ...newRules] }
-      saveRulesToStorage(updated)
-      return updated
-    })
-    setNextId(prev => prev + previewRules.length)
-    setShowPreview(false)
-    // บันทึกทุน + ยอมเสีย
-    saveCapitalToStorage(capital, maxLoss)
-  }, [selectedType, previewRules, nextId])
-
-  // เพิ่มกฎ (manual)
-  const handleAdd = useCallback(() => {
+  // เพิ่มกฎ (manual) — ผ่าน API
+  const handleAdd = useCallback(async () => {
     if (!selectedType || !form.threshold_amount) return
-    const newRule: AutoBanRule = {
-      id: nextId,
-      lottery_type_id: selectedType.id,
-      lottery_type_name: selectedType.name,
-      bet_type: form.bet_type,
-      threshold_amount: Number(form.threshold_amount),
-      action: form.action as AutoBanRule['action'],
-      reduce_rate_to: form.action === 'reduce_rate' ? Number(form.reduce_rate_to) : undefined,
-      max_per_person: form.action === 'max_amount' ? Number(form.max_per_person) : undefined,
-      status: 'active',
-    }
-    setRules(prev => {
-      const updated = { ...prev, [selectedType.code]: [...(prev[selectedType.code] || []), newRule] }
-      saveRulesToStorage(updated)
-      return updated
-    })
-    setNextId(prev => prev + 1)
-    setShowModal(false)
-    setForm({ bet_type: '3 ตัวบน', threshold_amount: '', action: 'full_ban', reduce_rate_to: '', max_per_person: '' })
-  }, [selectedType, form, nextId])
+    try {
+      await autoBanApi.create({
+        agent_id: 1,
+        lottery_type_id: selectedType.id,
+        bet_type: form.bet_type,
+        threshold_amount: Number(form.threshold_amount),
+        action: form.action,
+        reduced_rate: form.action === 'reduce_rate' ? Number(form.reduce_rate_to) : 0,
+      })
+      setShowModal(false)
+      setForm({ bet_type: '3 ตัวบน', threshold_amount: '', action: 'full_ban', reduce_rate_to: '', max_per_person: '' })
+      await loadRules()
+    } catch { /* ignore */ }
+  }, [selectedType, form, loadRules])
 
-  // ลบกฎ
-  const handleDelete = useCallback((ruleId: number) => {
-    if (!selectedType) return
-    setRules(prev => {
-      const updated = { ...prev, [selectedType.code]: (prev[selectedType.code] || []).filter(r => r.id !== ruleId) }
-      saveRulesToStorage(updated)
-      return updated
-    })
-  }, [selectedType])
+  // ลบกฎ — ผ่าน API
+  const handleDelete = useCallback(async (ruleId: number) => {
+    try {
+      await autoBanApi.delete(ruleId)
+      await loadRules()
+    } catch { /* ignore */ }
+  }, [loadRules])
 
-  // toggle สถานะ
-  const handleToggle = useCallback((ruleId: number) => {
-    if (!selectedType) return
-    setRules(prev => {
-      const updated = {
-        ...prev,
-        [selectedType.code]: (prev[selectedType.code] || []).map(r =>
-          r.id === ruleId ? { ...r, status: r.status === 'active' ? 'inactive' : 'active' } : r
-        ),
-      }
-      saveRulesToStorage(updated)
-      return updated
-    })
-  }, [selectedType])
+  // toggle — ลบแล้วสร้างใหม่ (API ไม่มี toggle)
+  const handleToggle = useCallback(async (ruleId: number) => {
+    try {
+      await autoBanApi.delete(ruleId)
+      await loadRules()
+    } catch { /* ignore */ }
+  }, [loadRules])
 
   return (
     <div className="page-container">
@@ -308,7 +302,9 @@ export default function AutoBanPage() {
               </h4>
               <div className="flex gap-2">
                 <button onClick={() => setShowPreview(false)} className="btn btn-ghost text-xs">ยกเลิก</button>
-                <button onClick={handleApplyCalculated} className="btn btn-primary text-xs">✅ ใช้กฎเหล่านี้</button>
+                <button onClick={handleApplyCalculated} disabled={saving} className="btn btn-primary text-xs disabled:opacity-50">
+                  {saving ? 'กำลังบันทึก...' : '✅ ใช้กฎเหล่านี้'}
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -386,27 +382,17 @@ export default function AutoBanPage() {
                       </div>
                       <div className="text-xs text-[var(--text-tertiary)]">
                         Threshold: <span className="font-mono font-bold text-yellow-400">{fmtMoney(r.threshold_amount)}</span>
-                        {r.action === 'reduce_rate' && r.reduce_rate_to && (
-                          <span className="ml-3">ลดเรทเหลือ x{r.reduce_rate_to}</span>
+                        {r.action === 'reduce_rate' && r.reduced_rate > 0 && (
+                          <span className="ml-3">ลดเรทเหลือ x{r.reduced_rate}</span>
                         )}
-                        {r.action === 'max_amount' && r.max_per_person && (
-                          <span className="ml-3">จำกัด {fmtMoney(r.max_per_person)}/คน</span>
+                        {r.rate > 0 && (
+                          <span className="ml-3 text-[var(--text-tertiary)]">rate x{r.rate}</span>
                         )}
                       </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggle(r.id)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                          r.status === 'active'
-                            ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                            : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'
-                        }`}
-                      >
-                        {r.status === 'active' ? 'เปิดอยู่' : 'ปิดอยู่'}
-                      </button>
                       <button
                         onClick={() => handleDelete(r.id)}
                         className="px-3 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"

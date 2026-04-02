@@ -254,3 +254,43 @@ export interface YeekeeStats {
   total_payout: number
   profit: number
 }
+
+// =============================================================================
+// ⭐ Auto-Ban Rules API — กฎอั้นเลขอัตโนมัติ
+// =============================================================================
+
+export const autoBanApi = {
+  /** ดึงกฎทั้งหมด (filter by lottery_type_id) */
+  list: (params?: { lottery_type_id?: number }) =>
+    api.get('/auto-ban-rules', { params }),
+
+  /** สร้างกฎ 1 กฎ */
+  create: (data: Partial<AutoBanRuleData>) =>
+    api.post('/auto-ban-rules', data),
+
+  /** สร้างกฎหลายกฎพร้อมกัน (จากคำนวณอัตโนมัติ) */
+  bulkCreate: (data: {
+    lottery_type_id: number
+    capital: number
+    max_loss: number
+    rules: { bet_type: string; threshold_amount: number; action: string; rate: number }[]
+  }) => api.post('/auto-ban-rules/bulk', data),
+
+  /** ลบกฎ (soft delete) */
+  delete: (id: number) => api.delete(`/auto-ban-rules/${id}`),
+}
+
+export interface AutoBanRuleData {
+  id: number
+  agent_id: number
+  lottery_type_id: number
+  bet_type: string
+  threshold_amount: number
+  action: string
+  reduced_rate: number
+  capital: number
+  max_loss: number
+  rate: number
+  status: string
+  lottery_type?: { id: number; name: string; code: string }
+}
