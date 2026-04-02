@@ -192,3 +192,65 @@ export interface AffiliateReportRow {
   total_commission: number
   pending_commission: number
 }
+
+// =============================================================================
+// ⭐ Yeekee Management API — ดูรอบ + สถิติยี่กี
+// =============================================================================
+
+export const yeekeeMgmtApi = {
+  /** รายการรอบยี่กี (paginated + filter) */
+  listRounds: (params?: { status?: string; date?: string; page?: number; per_page?: number }) =>
+    api.get('/yeekee/rounds', { params }),
+
+  /** ดูรอบเดียว + shoots + bet summary */
+  getRound: (id: number) => api.get(`/yeekee/rounds/${id}`),
+
+  /** ดูเลขยิงในรอบ (paginated) */
+  getShoots: (id: number, params?: { page?: number; per_page?: number }) =>
+    api.get(`/yeekee/rounds/${id}/shoots`, { params }),
+
+  /** สถิติยี่กีวันนี้ */
+  getStats: () => api.get('/yeekee/stats'),
+}
+
+// TypeScript types สำหรับ Yeekee
+export interface YeekeeRound {
+  id: number
+  lottery_round_id: number
+  round_no: number
+  start_time: string
+  end_time: string
+  status: 'waiting' | 'shooting' | 'calculating' | 'resulted'
+  result_number: string
+  total_shoots: number
+  total_sum: number
+  lottery_round?: {
+    id: number
+    round_number: string
+    status: string
+    result_top3?: string
+    result_top2?: string
+    result_bottom2?: string
+  }
+}
+
+export interface YeekeeShoot {
+  id: number
+  yeekee_round_id: number
+  member_id: number
+  number: string
+  shot_at: string
+  member?: { id: number; username: string }
+}
+
+export interface YeekeeStats {
+  total_rounds: number
+  waiting_count: number
+  shooting_count: number
+  resulted_count: number
+  total_shoots: number
+  total_bets: number
+  total_bet_amount: number
+  total_payout: number
+  profit: number
+}
