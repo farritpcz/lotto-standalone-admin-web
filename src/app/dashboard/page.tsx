@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { DashboardSkeleton } from '@/components/Loading'
 import {
   TrendingUp, TrendingDown, Users, DollarSign, ArrowDownToLine, ArrowUpFromLine,
   CreditCard, Activity, UserPlus, Wallet, Ban, RefreshCw
@@ -134,13 +135,7 @@ export default function DashboardPage() {
 
   // ─── Loading ────────────────────────────────────────────────────
   if (loading || !data) {
-    return (
-      <div className="page-container">
-        <div className="page-header"><h1>Dashboard</h1></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {[1,2,3,4].map(i => <div key={i} className="stat-card" style={{ height: 100 }}><div className="skeleton" style={{ height: 14, width: 80, marginBottom: 12 }} /><div className="skeleton" style={{ height: 28, width: 120 }} /></div>)}
-        </div>
-      </div>
+    return (<DashboardSkeleton />
     )
   }
 
