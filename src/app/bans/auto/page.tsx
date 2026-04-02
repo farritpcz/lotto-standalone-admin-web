@@ -170,36 +170,57 @@ export default function AutoBanPage() {
     const calculated: typeof previewRules = []
     for (const r of rates) {
       const fullThreshold = Math.floor(maxLossNum / r.rate)
-      // ⭐ 5 ระดับขั้นบันได — ค่อยๆ ลดเรท ไม่ลดทีเดียว
-      // ระดับ 1: จำกัดยอดต่อคน — ที่ 50%
+      // ⭐ 8 ระดับขั้นบันได — กระจายการลดเรท 6 ขั้น
+      // ระดับ 1: จำกัดยอดต่อคน — ที่ 40%
+      calculated.push({
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.4),
+        action: 'max_amount', reducedRate: 0,
+        label: 'จำกัดยอด (40%)',
+      })
+      // ระดับ 2: ลดเรท 10% — ที่ 50%
       calculated.push({
         betType: r.betType, rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.5),
-        action: 'max_amount', reducedRate: 0,
-        label: 'จำกัดยอด (50%)',
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.9),
+        label: 'ลดเรท 10% (50%)',
       })
-      // ระดับ 2: ลดเรท 25% — ที่ 65%
+      // ระดับ 3: ลดเรท 20% — ที่ 60%
       calculated.push({
         betType: r.betType, rate: r.rate,
-        threshold: Math.floor(fullThreshold * 0.65),
-        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.75),
-        label: 'ลดเรท 25% (65%)',
+        threshold: Math.floor(fullThreshold * 0.6),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.8),
+        label: 'ลดเรท 20% (60%)',
       })
-      // ระดับ 3: ลดเรท 50% — ที่ 80%
+      // ระดับ 4: ลดเรท 35% — ที่ 70%
+      calculated.push({
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.7),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.65),
+        label: 'ลดเรท 35% (70%)',
+      })
+      // ระดับ 5: ลดเรท 50% — ที่ 80%
       calculated.push({
         betType: r.betType, rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.8),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.5),
         label: 'ลดเรท 50% (80%)',
       })
-      // ระดับ 4: ลดเรท 75% — ที่ 90%
+      // ระดับ 6: ลดเรท 65% — ที่ 88%
       calculated.push({
         betType: r.betType, rate: r.rate,
-        threshold: Math.floor(fullThreshold * 0.9),
-        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.25),
-        label: 'ลดเรท 75% (90%)',
+        threshold: Math.floor(fullThreshold * 0.88),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.35),
+        label: 'ลดเรท 65% (88%)',
       })
-      // ระดับ 5: อั้นเต็ม — ที่ 100%
+      // ระดับ 7: ลดเรท 80% — ที่ 95%
+      calculated.push({
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.95),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.2),
+        label: 'ลดเรท 80% (95%)',
+      })
+      // ระดับ 8: อั้นเต็ม — ที่ 100%
       calculated.push({
         betType: r.betType, rate: r.rate,
         threshold: fullThreshold,
@@ -416,7 +437,7 @@ export default function AutoBanPage() {
               ))
             })()}
             <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-              💡 5 ระดับขั้นบันได: จำกัดยอด (50%) → ลดเรท 25% (65%) → ลดเรท 50% (80%) → ลดเรท 75% (90%) → อั้นเต็ม (100%)
+              💡 8 ระดับขั้นบันได: จำกัดยอด → ลดเรท 10%→20%→35%→50%→65%→80% → อั้นเต็ม (กระจายการลดเรท 6 ขั้น)
             </div>
           </div>
         )}
@@ -493,7 +514,7 @@ export default function AutoBanPage() {
                       </div>
 
                       {/* ระดับขั้นบันไดในแถวเดียว */}
-                      <div className="grid grid-cols-5 gap-2">
+                      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
                         {sorted.map(r => {
                           const ac = actionConfig[r.action] || actionConfig.full_ban
                           return (
@@ -581,7 +602,7 @@ export default function AutoBanPage() {
 
               {/* ระดับ 2-4: ลดเรทแบบขั้นบันได */}
               <div className="rounded-lg p-3" style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)' }}>
-                <div className="font-bold mb-1" style={{ color: '#f5a623' }}>📉 ระดับ 2-4 — ลดเรทแบบขั้นบันได</div>
+                <div className="font-bold mb-1" style={{ color: '#f5a623' }}>📉 ระดับ 2-7 — ลดเรทแบบขั้นบันได (6 ขั้น)</div>
                 <div className="mt-1 mb-2">ยังรับแทงอยู่ แต่ค่อยๆ ลดอัตราจ่าย → ลดความเสี่ยงทีละขั้น</div>
                 <div className="grid grid-cols-1 gap-1.5">
                   {reduceRateRules.map((rr, i) => (
@@ -598,7 +619,7 @@ export default function AutoBanPage() {
 
               {/* ระดับ 5: อั้นเต็ม */}
               <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                <div className="font-bold mb-1" style={{ color: '#ef4444' }}>🚫 ระดับ 5 — อั้นเต็ม (threshold {fmtMoney(thBan)})</div>
+                <div className="font-bold mb-1" style={{ color: '#ef4444' }}>🚫 ระดับ 8 — อั้นเต็ม (threshold {fmtMoney(thBan)})</div>
                 <div className="mt-1">
                   เมื่อยอดรวมต่อเลขถึง <span className="font-bold text-yellow-400">{fmtMoney(thBan)}</span>
                   → <span className="font-bold" style={{ color: '#ef4444' }}>ปิดรับเลขนั้นเลย</span> ใครแทงมาจะถูก reject ทันที
@@ -608,7 +629,7 @@ export default function AutoBanPage() {
 
               {/* สรุปขั้นบันได */}
               <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-                <div className="font-bold text-[var(--text-primary)] mb-2">🛡️ สรุป — ขั้นบันไดปกป้อง</div>
+                <div className="font-bold text-[var(--text-primary)] mb-2">🛡️ สรุป — 8 ขั้นบันไดปกป้อง</div>
                 <div className="space-y-1">
                   <div>ยอดรวม &lt; {fmtMoney(thMax)} → <span className="text-green-400 font-bold">ปกติ</span> (รับแทงเต็ม rate x{rate})</div>
                   <div>ยอดรวม &gt; {fmtMoney(thMax)} → <span className="font-bold" style={{ color: '#3b82f6' }}>จำกัดยอดต่อคน</span></div>
