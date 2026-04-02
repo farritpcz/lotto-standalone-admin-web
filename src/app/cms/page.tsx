@@ -22,6 +22,7 @@ import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import { Image, MessageSquareText, FlaskConical, Plus } from 'lucide-react'
 import Loading from '@/components/Loading'
+import ImageUpload from '@/components/ImageUpload'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล CMS
@@ -440,12 +441,13 @@ export default function CMSPage() {
              TAB: รูปประเภทหวย (Lottery Type Images)
              ══════════════════════════════════════════════════════════════ */}
           {activeTab === 'lottery-images' && (() => {
-            const saveImage = async (ltId: number) => {
+            const saveImage = async (ltId: number, url?: string) => {
+              const imageUrl = url ?? editUrl
               try {
-                await api.put(`/lotteries/${ltId}/image`, { image_url: editUrl })
-                setLtTypes(prev => prev.map(l => l.id === ltId ? { ...l, image_url: editUrl } : l))
+                await api.put(`/lotteries/${ltId}/image`, { image_url: imageUrl })
+                setLtTypes(prev => prev.map(l => l.id === ltId ? { ...l, image_url: imageUrl } : l))
                 setEditingLtId(null)
-                setMessage({ type: 'success', text: 'บันทึกรูปสำเร็จ' })
+                setMessage({ type: 'success', text: imageUrl ? 'บันทึกรูปสำเร็จ' : 'ลบรูปสำเร็จ' })
               } catch { setMessage({ type: 'error', text: 'บันทึกไม่สำเร็จ' }) }
             }
 
@@ -494,36 +496,23 @@ export default function CMSPage() {
                       </span>
                     </div>
 
-                    {/* Info + edit */}
+                    {/* Info + upload */}
                     <div style={{ padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{lt.name}</div>
                           <div className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{lt.code}</div>
                         </div>
-                        <button className="btn btn-ghost" onClick={() => { setEditingLtId(lt.id); setEditUrl(lt.image_url || '') }}
-                          style={{ height: 24, padding: '0 6px', fontSize: 10 }}>
-                          {lt.image_url ? 'เปลี่ยน' : 'ใส่รูป'}
-                        </button>
                       </div>
-
-                      {/* Edit URL inline */}
-                      {editingLtId === lt.id && (
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                          <input type="text" className="input" value={editUrl}
-                            onChange={e => setEditUrl(e.target.value)}
-                            placeholder="วาง URL รูปภาพ..."
-                            style={{ flex: 1, height: 28, fontSize: 11, fontFamily: 'var(--font-mono)' }} />
-                          <button className="btn btn-primary" onClick={() => saveImage(lt.id)}
-                            style={{ height: 28, padding: '0 10px', fontSize: 11 }}>
-                            บันทึก
-                          </button>
-                          <button className="btn btn-ghost" onClick={() => setEditingLtId(null)}
-                            style={{ height: 28, padding: '0 6px', fontSize: 11 }}>
-                            ยกเลิก
-                          </button>
-                        </div>
-                      )}
+                      {/* Upload / เปลี่ยนรูป */}
+                      <ImageUpload
+                        folder="lottery"
+                        currentUrl={lt.image_url || ''}
+                        size="lg"
+                        onUploaded={async (url) => {
+                          await saveImage(lt.id, url)
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
