@@ -408,50 +408,64 @@ export default function AutoBanPage() {
         </div>
       )}
 
-      {/* ⭐ คำอธิบายเมื่อมีกฎแล้ว — อธิบายการทำงานพร้อมตัวอย่าง */}
-      {selectedType && currentRules.length > 0 && (
-        <div className="card-surface p-4 mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-lg">💡</span>
-            <h3 className="text-sm font-bold">กฎเหล่านี้ทำงานยังไง?</h3>
-          </div>
-          <div className="text-xs text-[var(--text-secondary)] leading-relaxed space-y-3">
-            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-              <div className="font-bold text-[var(--text-primary)] mb-1">📌 สถานการณ์ตัวอย่าง</div>
-              คุณตั้ง <span className="text-yellow-400 font-bold">3 ตัวบน</span> threshold{' '}
-              <span className="text-yellow-400 font-bold">{fmtMoney(currentRules.find(r => r.bet_type === '3 ตัวบน')?.threshold_amount || 22)}</span>
-            </div>
+      {/* ⭐ คำอธิบายเมื่อมีกฎแล้ว — ตัวอย่างสอดคล้องกับ threshold จริง */}
+      {selectedType && currentRules.length > 0 && (() => {
+        // ดึง threshold จริงของ 3 ตัวบน (หรือ bet type แรก) มาทำตัวอย่าง
+        const exRule = currentRules.find(r => r.bet_type === '3TOP') || currentRules[0]
+        const th = Math.floor(exRule.threshold_amount)
+        const betTypeName = exRule.bet_type === '3TOP' ? '3ตัวบน' : exRule.bet_type
+        const rate = exRule.rate || 900
+        // คำนวณตัวอย่าง: แบ่งเป็น 3 คน ให้คน C เกิน threshold
+        const betA = Math.floor(th * 0.4) || 1
+        const betB = Math.floor(th * 0.4) || 1
+        const betC = Math.floor(th * 0.3) || 1
+        const sumAB = betA + betB
+        const sumABC = sumAB + betC
 
-            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-              <div className="font-bold text-[var(--text-primary)] mb-1">📋 เมื่อมีคนแทง</div>
-              <div className="space-y-1.5 mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400">✅</span>
-                  <span>ลูกค้า A แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿10 → ยอมรับ (ยอดรวม ฿10)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400">✅</span>
-                  <span>ลูกค้า B แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿8 → ยอมรับ (ยอดรวม ฿18)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400">🚫</span>
-                  <span>ลูกค้า C แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿10 → <span className="text-red-400 font-bold">อั้น!</span> (ยอดรวม ฿28 เกิน threshold)</span>
+        return (
+          <div className="card-surface p-4 mt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">💡</span>
+              <h3 className="text-sm font-bold">กฎเหล่านี้ทำงานยังไง?</h3>
+            </div>
+            <div className="text-xs text-[var(--text-secondary)] leading-relaxed space-y-3">
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+                <div className="font-bold text-[var(--text-primary)] mb-1">📌 สถานการณ์ตัวอย่าง</div>
+                คุณตั้ง <span className="text-yellow-400 font-bold">{betTypeName}</span> threshold{' '}
+                <span className="text-yellow-400 font-bold">{fmtMoney(th)}</span>
+              </div>
+
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+                <div className="font-bold text-[var(--text-primary)] mb-1">📋 เมื่อมีคนแทง</div>
+                <div className="space-y-1.5 mt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✅</span>
+                    <span>ลูกค้า A แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betA)} → ยอมรับ (ยอดรวม {fmtMoney(betA)})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✅</span>
+                    <span>ลูกค้า B แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betB)} → ยอมรับ (ยอดรวม {fmtMoney(sumAB)})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-400">🚫</span>
+                    <span>ลูกค้า C แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betC)} → <span className="text-red-400 font-bold">อั้น!</span> (ยอดรวม {fmtMoney(sumABC)} เกิน threshold {fmtMoney(th)})</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-              <div className="font-bold text-[var(--text-primary)] mb-1">🛡️ ผลลัพธ์</div>
-              ถ้าเลข 847 ถูกจริง คุณจ่ายสูงสุดแค่ threshold × rate<br />
-              → <span className="text-green-400 font-bold">ไม่ขาดทุนเกินที่ตั้งไว้</span> ← ระบบปกป้องให้อัตโนมัติ
-            </div>
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+                <div className="font-bold text-[var(--text-primary)] mb-1">🛡️ ผลลัพธ์</div>
+                ถ้าเลข 847 ถูกจริง คุณจ่ายสูงสุดแค่ {fmtMoney(th)} × {rate} = <span className="text-yellow-400 font-bold">{fmtMoney(th * rate)}</span><br />
+                → <span className="text-green-400 font-bold">ไม่ขาดทุนเกินที่ตั้งไว้</span> ← ระบบปกป้องให้อัตโนมัติ
+              </div>
 
-            <div className="text-[10px] text-[var(--text-tertiary)]">
-              💡 สูตร: threshold = ยอมเสียสูงสุด ÷ rate → ระบบตรวจยอดรวมต่อเลขในแต่ละรอบ ถ้าเกิน threshold → อั้นเลขนั้นอัตโนมัติ
+              <div className="text-[10px] text-[var(--text-tertiary)]">
+                💡 สูตร: threshold = ยอมเสียสูงสุด ÷ rate → ระบบตรวจยอดรวมต่อเลขในแต่ละรอบ ถ้าเกิน threshold → อั้นเลขนั้นอัตโนมัติ
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Add Rule Modal ─────────────────────────────────────────────────── */}
       {showModal && (
