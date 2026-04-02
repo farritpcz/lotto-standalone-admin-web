@@ -238,7 +238,42 @@ export default function NotificationSettingsPage() {
             </div>
 
             {/* ── Telegram Config ─────────────────────────────────────────── */}
-            <div className="label" style={{ marginBottom: 8 }}>Telegram</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div className="label">Telegram</div>
+              <button onClick={() => {
+                const el = document.getElementById('tg-help-' + editingGroup.id)
+                if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'
+              }} className="btn btn-ghost" style={{ fontSize: 11, height: 24, padding: '0 8px' }}>
+                ❓ วิธีหา Token + Chat ID
+              </button>
+            </div>
+
+            {/* คำแนะนำวิธีหา Bot Token + Chat ID */}
+            <div id={`tg-help-${editingGroup.id}`} style={{
+              display: 'none', background: 'var(--bg-elevated)', borderRadius: 8,
+              padding: 14, marginBottom: 12, fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)',
+            }}>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>📌 วิธีหา Bot Token</div>
+              <div>1. เปิด Telegram แล้วค้นหา <span style={{ color: 'var(--accent)' }}>@BotFather</span></div>
+              <div>2. พิมพ์ <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>/newbot</code> แล้วตั้งชื่อ Bot</div>
+              <div>3. BotFather จะส่ง Token กลับมา เช่น <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>123456:ABC-DEF...</code></div>
+              <div>4. คัดลอก Token มาใส่ช่อง Bot Token</div>
+
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 12, marginBottom: 6 }}>📌 วิธีหา Chat ID (กลุ่ม)</div>
+              <div>1. สร้างกลุ่ม Telegram แล้วเพิ่ม Bot เข้าไปในกลุ่ม</div>
+              <div>2. ส่งข้อความอะไรก็ได้ในกลุ่ม</div>
+              <div>3. เปิด URL นี้ในเบราว์เซอร์ (แทน TOKEN ด้วย Bot Token):</div>
+              <div style={{ margin: '4px 0', padding: '6px 8px', background: '#222', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all' }}>
+                https://api.telegram.org/bot<span style={{ color: '#f5a623' }}>YOUR_TOKEN</span>/getUpdates
+              </div>
+              <div>4. หา <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>{'"chat":{"id":-100xxx}'}</code> ในผลลัพธ์</div>
+              <div>5. คัดลอกตัวเลข (รวมเครื่องหมายลบ) มาใส่ช่อง Chat ID</div>
+
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 12, marginBottom: 6 }}>📌 วิธีหา Chat ID (ส่วนตัว)</div>
+              <div>1. ค้นหา <span style={{ color: 'var(--accent)' }}>@userinfobot</span> ใน Telegram</div>
+              <div>2. กด Start → Bot จะแสดง Chat ID ของคุณ</div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Bot Token</div>
