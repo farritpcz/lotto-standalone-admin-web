@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลบัญชีธนาคาร + ตั้งค่าฝาก/ถอน
@@ -303,9 +304,7 @@ export default function BankAccountsPage() {
         <div className="label" style={{ marginBottom: 16 }}>บัญชีธนาคาร</div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-            กำลังโหลด...
-          </div>
+          <Loading inline text="กำลังโหลด..." />
         ) : accounts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
             ยังไม่มีบัญชีธนาคาร กดปุ่ม "เพิ่มบัญชี" เพื่อเริ่มต้น

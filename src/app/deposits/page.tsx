@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react'
 import { depositApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
 /* ── Status config ────────────────────────────────────────────────────── */
@@ -157,7 +158,7 @@ export default function DepositsPage() {
       {/* Table */}
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+          <Loading inline text="กำลังโหลด..." />
         ) : rows.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>ไม่มีรายการ</div>
         ) : (

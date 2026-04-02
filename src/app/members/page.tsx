@@ -21,6 +21,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { memberMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลสมาชิก
@@ -188,9 +189,7 @@ export default function MembersPage() {
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
           /* Loading state */
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            กำลังโหลด...
-          </div>
+          <Loading inline text="กำลังโหลด..." />
         ) : members.length === 0 ? (
           /* Empty state */
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
@@ -356,9 +355,7 @@ export default function MembersPage() {
 
             {detailLoading ? (
               /* กำลังโหลดรายละเอียด */
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                กำลังโหลด...
-              </div>
+              <Loading inline text="กำลังโหลด..." />
             ) : selectedMember ? (
               /* แสดงข้อมูลสมาชิก */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

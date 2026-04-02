@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react'
 import { settingApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 interface DepositWithdrawSettings {
   min_deposit: string
@@ -85,11 +86,7 @@ export default function DepositWithdrawSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="page-container" style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
-        กำลังโหลด...
-      </div>
-    )
+    return <Loading />
   }
 
   return (

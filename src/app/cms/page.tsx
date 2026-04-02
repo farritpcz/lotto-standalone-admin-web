@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import { Image, MessageSquareText, FlaskConical, Plus } from 'lucide-react'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล CMS
@@ -290,9 +291,7 @@ export default function CMSPage() {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
-          กำลังโหลด...
-        </div>
+        <Loading inline text="กำลังโหลด..." />
       ) : (
         <>
           {/* ══════════════════════════════════════════════════════════════

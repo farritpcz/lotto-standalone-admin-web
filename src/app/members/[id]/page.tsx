@@ -27,6 +27,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { memberMgmtApi, txMgmtApi, betMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
 // =============================================================================
@@ -345,13 +346,7 @@ export default function MemberDetailPage() {
   // RENDER — Loading state
   // =========================================================================
   if (loading) {
-    return (
-      <div className="page-container" style={{ textAlign: 'center', padding: 80 }}>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-          กำลังโหลดข้อมูลสมาชิก...
-        </div>
-      </div>
-    )
+    return <Loading />
   }
 
   // =========================================================================
@@ -567,9 +562,7 @@ export default function MemberDetailPage() {
         <div style={{ animation: 'fadeIn 0.2s ease' }}>
           <div className="card-surface" style={{ overflow: 'hidden' }}>
             {txLoading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                กำลังโหลดประวัติเครดิต...
-              </div>
+              <Loading inline text="กำลังโหลดประวัติเครดิต..." />
             ) : txns.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
                 ยังไม่มีรายการธุรกรรม
@@ -643,9 +636,7 @@ export default function MemberDetailPage() {
         <div style={{ animation: 'fadeIn 0.2s ease' }}>
           <div className="card-surface" style={{ overflow: 'hidden' }}>
             {betLoading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                กำลังโหลดประวัติการแทง...
-              </div>
+              <Loading inline text="กำลังโหลดประวัติการแทง..." />
             ) : bets.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
                 ยังไม่มีรายการเดิมพัน

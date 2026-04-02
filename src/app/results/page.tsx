@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { resultMgmtApi, roundMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Round {
@@ -155,7 +156,7 @@ export default function ResultsPage() {
         <div className="label" style={{ marginBottom: 12 }}>เลือกรอบ + กรอกผล</div>
 
         {loading ? (
-          <div style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+          <Loading inline text="กำลังโหลด..." />
         ) : rounds.length === 0 ? (
           <div style={{ color: 'var(--text-tertiary)' }}>ไม่มีรอบที่รอกรอกผล (ต้องปิดรับก่อน)</div>
         ) : (
@@ -388,7 +389,7 @@ export default function ResultsPage() {
             </div>
 
             {detailLoading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+              <Loading inline text="กำลังโหลด..." />
             ) : detailData ? (
               <>
                 {/* สรุป */}

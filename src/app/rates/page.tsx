@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react'
 import { rateMgmtApi, lotteryMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 interface LotteryType { id: number; name: string; code: string }
@@ -162,7 +163,7 @@ export default function RatesPage() {
       {/* ── ตาราง rates ────────────────────────────────────────────────── */}
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+          <Loading inline text="กำลังโหลด..." />
         ) : editRates.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
             {selectedLottery ? 'ไม่มีอัตราจ่ายสำหรับหวยนี้' : 'กรุณาเลือกประเภทหวย'}

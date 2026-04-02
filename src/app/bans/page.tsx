@@ -22,6 +22,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { banMgmtApi, lotteryMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลเลขอั้น
@@ -250,9 +251,7 @@ export default function BansPage() {
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
           /* Loading state */
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            กำลังโหลด...
-          </div>
+          <Loading inline text="กำลังโหลด..." />
         ) : bans.length === 0 ? (
           /* Empty state — ยังไม่มีเลขอั้น */
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>

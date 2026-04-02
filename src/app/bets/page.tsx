@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { betMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 /* Bet interface */
 interface Bet {
@@ -78,7 +79,7 @@ export default function BetsPage() {
       {/* Table */}
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+          <Loading inline text="กำลังโหลด..." />
         ) : bets.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>ไม่มีรายการ</div>
         ) : (

@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { txMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 interface Tx {
   id: number; type: string; amount: number
@@ -76,7 +77,7 @@ export default function TransactionsPage() {
       {/* Table */}
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+          <Loading inline text="กำลังโหลด..." />
         ) : txns.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>ไม่มีรายการ</div>
         ) : (

@@ -16,6 +16,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { yeekeeMgmtApi, YeekeeRound, YeekeeShoot } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
   waiting:     { badge: 'badge-neutral',  label: 'รอเริ่ม' },
@@ -94,11 +95,7 @@ export default function YeekeeDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="page-container">
-        <div className="text-center py-20 text-[var(--text-tertiary)]">กำลังโหลด...</div>
-      </div>
-    )
+    return <Loading />
   }
 
   if (!round) {

@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลพนักงาน
@@ -270,9 +271,7 @@ export default function StaffPage() {
          ══════════════════════════════════════════════════════════════════ */}
       <div className="card-surface" style={{ overflow: 'auto' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-            กำลังโหลด...
-          </div>
+          <Loading inline text="กำลังโหลด..." />
         ) : filteredStaff.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
             {search ? 'ไม่พบพนักงานที่ค้นหา' : 'ยังไม่มีพนักงาน'}

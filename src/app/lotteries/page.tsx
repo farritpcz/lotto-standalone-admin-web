@@ -31,6 +31,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { lotteryMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // Types — โครงสร้างข้อมูลประเภทหวย
@@ -255,9 +256,7 @@ export default function LotteriesPage() {
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
           /* กำลังโหลด */
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            กำลังโหลดข้อมูล...
-          </div>
+          <Loading inline text="กำลังโหลดข้อมูล..." />
         ) : types.length === 0 ? (
           /* ไม่มีข้อมูล */
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>

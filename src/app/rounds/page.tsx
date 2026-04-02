@@ -32,6 +32,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { roundMgmtApi, lotteryMgmtApi } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // =============================================================================
 // Types — โครงสร้างข้อมูลรอบหวย
@@ -360,9 +361,7 @@ export default function RoundsPage() {
       <div className="card-surface" style={{ overflow: 'hidden' }}>
         {loading ? (
           /* กำลังโหลด */
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            กำลังโหลดข้อมูล...
-          </div>
+          <Loading inline text="กำลังโหลดข้อมูล..." />
         ) : rounds.length === 0 ? (
           /* ไม่มีข้อมูล */
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>

@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react'
 import { affiliateApi, lotteryMgmtApi, type AffiliateSetting, type AffiliateReportRow } from '@/lib/api'
+import Loading from '@/components/Loading'
 
 // ===============================================================================
 // Types
@@ -179,7 +180,7 @@ export default function AffiliatePage() {
         <h2 className="text-lg font-semibold text-white mb-3">อัตราค่าคอมมิชชั่น</h2>
         <div className="bg-gray-800 rounded-xl overflow-hidden">
           {loadingSettings ? (
-            <div className="p-6 text-gray-400 text-sm text-center">กำลังโหลด...</div>
+            <Loading inline text="กำลังโหลด..." />
           ) : settings.length === 0 ? (
             <div className="p-6 text-gray-500 text-sm text-center">ยังไม่มี setting — กดปุ่ม "เพิ่ม Setting"</div>
           ) : (
@@ -342,7 +343,7 @@ export default function AffiliatePage() {
         <h2 className="text-lg font-semibold text-white mb-3">รายงาน Commission</h2>
         <div className="bg-gray-800 rounded-xl overflow-hidden">
           {loadingReport ? (
-            <div className="p-6 text-gray-400 text-sm text-center">กำลังโหลด...</div>
+            <Loading inline text="กำลังโหลด..." />
           ) : report.length === 0 ? (
             <div className="p-6 text-gray-500 text-sm text-center">ยังไม่มีข้อมูล commission</div>
           ) : (
