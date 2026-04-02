@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import { Image, MessageSquareText, FlaskConical, Plus } from 'lucide-react'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล CMS
@@ -56,21 +57,27 @@ interface LotteryImage {
 // =============================================================================
 // MOCK DATA — ใช้เมื่อ API ยังไม่พร้อม
 // =============================================================================
+// ⭐ MEMBER_WEB_URL — URL ของ member-web ที่เก็บ static images
+const MEMBER_WEB_URL = process.env.NEXT_PUBLIC_MEMBER_WEB_URL || 'http://localhost:3001'
+
+// ⭐ Default banners — รูปพื้นฐานที่ตั้งไว้เลย agent เอามาอัพใหม่ค่อยทับ
 const MOCK_BANNERS: Banner[] = [
-  { id: 1, image_url: '/banners/promo-01.jpg', link_url: '/promotions/1', sort_order: 1, is_active: true },
-  { id: 2, image_url: '/banners/promo-02.jpg', link_url: '/promotions/2', sort_order: 2, is_active: true },
-  { id: 3, image_url: '/banners/promo-03.jpg', link_url: '', sort_order: 3, is_active: false },
+  { id: 1, image_url: `${MEMBER_WEB_URL}/images/banners/banner-1.svg`, link_url: '/promotions', sort_order: 1, is_active: true },
+  { id: 2, image_url: `${MEMBER_WEB_URL}/images/banners/banner-2.svg`, link_url: '/promotions', sort_order: 2, is_active: true },
+  { id: 3, image_url: `${MEMBER_WEB_URL}/images/banners/banner-3.svg`, link_url: '', sort_order: 3, is_active: true },
 ]
 
-const MOCK_TICKER = 'ยินดีต้อนรับสู่เว็บหวยออนไลน์ | สมัครวันนี้รับโบนัส 100% | หวยรัฐบาลจ่ายบาทละ 900'
+const MOCK_TICKER = '🎉 ยินดีต้อนรับสู่ LOTTO · จ่ายจริง ถอนได้จริง · สมัครวันนี้รับโบนัส 100% · หวยรัฐบาลจ่ายบาทละ 900'
 
+// ⭐ Default lottery images — รูปพื้นฐานแต่ละประเภทหวย
 const MOCK_LOTTERY_IMAGES: LotteryImage[] = [
-  { id: 1, lottery_type_code: 'THAI_GOV', lottery_type_name: 'หวยรัฐบาล', image_url: '/lottery/thai-gov.png' },
-  { id: 2, lottery_type_code: 'YEEKEE', lottery_type_name: 'หวยยี่กี', image_url: '/lottery/yeekee.png' },
-  { id: 3, lottery_type_code: 'HANOI', lottery_type_name: 'หวยฮานอย', image_url: '/lottery/hanoi.png' },
-  { id: 4, lottery_type_code: 'LAO', lottery_type_name: 'หวยลาว', image_url: '/lottery/lao.png' },
-  { id: 5, lottery_type_code: 'MALAY', lottery_type_name: 'หวยมาเลย์', image_url: '/lottery/malay.png' },
-  { id: 6, lottery_type_code: 'STOCK', lottery_type_name: 'หวยหุ้น', image_url: '/lottery/stock.png' },
+  { id: 1, lottery_type_code: 'THAI', lottery_type_name: 'หวยไทย (ใต้ดิน)', image_url: `${MEMBER_WEB_URL}/images/lottery/THAI.svg` },
+  { id: 2, lottery_type_code: 'LAO', lottery_type_name: 'หวยลาว', image_url: `${MEMBER_WEB_URL}/images/lottery/LAO.svg` },
+  { id: 3, lottery_type_code: 'STOCK_TH', lottery_type_name: 'หวยหุ้นไทย', image_url: `${MEMBER_WEB_URL}/images/lottery/STOCK_TH.svg` },
+  { id: 4, lottery_type_code: 'STOCK_FOREIGN', lottery_type_name: 'หวยหุ้นต่างประเทศ', image_url: `${MEMBER_WEB_URL}/images/lottery/STOCK_FOREIGN.svg` },
+  { id: 5, lottery_type_code: 'YEEKEE', lottery_type_name: 'หวยยี่กี', image_url: `${MEMBER_WEB_URL}/images/lottery/YEEKEE.svg` },
+  { id: 6, lottery_type_code: 'HANOI', lottery_type_name: 'หวยฮานอย', image_url: `${MEMBER_WEB_URL}/images/lottery/HANOI.svg` },
+  { id: 7, lottery_type_code: 'MALAY', lottery_type_name: 'หวยมาเลย์', image_url: `${MEMBER_WEB_URL}/images/lottery/MALAY.svg` },
 ]
 
 // =============================================================================
@@ -228,10 +235,10 @@ export default function CMSPage() {
   // ─────────────────────────────────────────────────────────────────────────────
   // TAB DEFINITION — config สำหรับแต่ละ tab
   // ─────────────────────────────────────────────────────────────────────────────
-  const tabs: { key: TabKey; label: string; icon: string }[] = [
-    { key: 'banners', label: 'แบนเนอร์', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
-    { key: 'ticker', label: 'ตัวอักษรวิ่ง', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' },
-    { key: 'lottery-images', label: 'รูปประเภทหวย', icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' },
+  const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }[] = [
+    { key: 'banners', label: 'แบนเนอร์', icon: Image },
+    { key: 'ticker', label: 'ตัวอักษรวิ่ง', icon: MessageSquareText },
+    { key: 'lottery-images', label: 'รูปประเภทหวย', icon: FlaskConical },
   ]
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -276,11 +283,7 @@ export default function CMSPage() {
               marginBottom: -1, // overlap bottom border
             }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: 15, height: 15 }}>
-              <path d={tab.icon} />
-            </svg>
+            <tab.icon size={15} strokeWidth={1.5} />
             {tab.label}
           </button>
         ))}
@@ -301,10 +304,7 @@ export default function CMSPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div className="label">รายการแบนเนอร์ ({banners.length} รายการ)</div>
                 <button className="btn btn-primary" onClick={openAddBanner} style={{ height: 30, fontSize: 12 }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
-                    style={{ width: 12, height: 12 }}>
-                    <path d="M12 5v14m-7-7h14" />
-                  </svg>
+                  <Plus size={12} strokeWidth={2} />
                   เพิ่มแบนเนอร์
                 </button>
               </div>
@@ -341,10 +341,7 @@ export default function CMSPage() {
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: 10, color: 'var(--text-tertiary)', overflow: 'hidden',
                             }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
-                                style={{ width: 14, height: 14, opacity: 0.5 }}>
-                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
+                              <Image size={14} strokeWidth={1.5} style={{ opacity: 0.5 }} />
                             </div>
                             <span style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {banner.image_url}
@@ -461,10 +458,7 @@ export default function CMSPage() {
                       alignItems: 'center', justifyContent: 'center',
                       gap: 8, marginBottom: 12, cursor: 'pointer',
                     }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth={1.5}
-                        style={{ width: 24, height: 24 }}>
-                        <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
+                      <Image size={24} strokeWidth={1.5} color="var(--text-tertiary)" />
                       <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
                         คลิกเพื่ออัพโหลด
                       </span>
