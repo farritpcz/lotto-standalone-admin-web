@@ -57,7 +57,9 @@ export default function ImageUpload({ folder = 'general', currentUrl, onUploaded
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const uploadedUrl = API_BASE + (res.data.data?.url || '')
+      const rawUrl = res.data.data?.url || ''
+      // R2 return full URL (https://...) — local return relative (/uploads/...)
+      const uploadedUrl = rawUrl.startsWith('http') ? rawUrl : API_BASE + rawUrl
       onUploaded(uploadedUrl)
       setPreview(null) // ใช้ URL จริงแทน
     } catch {
