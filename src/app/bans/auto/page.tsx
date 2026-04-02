@@ -59,21 +59,61 @@ const FALLBACK_RATES: BetTypeRate[] = [
   { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 },
 ]
 
-/* ── Mock rules per lottery type ───────────────────────────────────────── */
-const defaultRules: Record<string, AutoBanRule[]> = {}
+/* ── localStorage key ──────────────────────────────────────────────────── */
+const STORAGE_KEY = 'lotto_auto_ban_rules'
+const CAPITAL_KEY = 'lotto_auto_ban_capital'
+
+function loadRulesFromStorage(): Record<string, AutoBanRule[]> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+function saveRulesToStorage(rules: Record<string, AutoBanRule[]>) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rules))
+}
+
+function loadCapitalFromStorage(): { capital: string; maxLoss: string } {
+  if (typeof window === 'undefined') return { capital: '', maxLoss: '' }
+  try {
+    const raw = localStorage.getItem(CAPITAL_KEY)
+    return raw ? JSON.parse(raw) : { capital: '', maxLoss: '' }
+  } catch { return { capital: '', maxLoss: '' } }
+}
+
+function saveCapitalToStorage(capital: string, maxLoss: string) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(CAPITAL_KEY, JSON.stringify({ capital, maxLoss }))
+}
 
 const fmtMoney = (n: number) => `฿${n.toLocaleString()}`
 
 export default function AutoBanPage() {
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
   const [selectedType, setSelectedType] = useState<LotteryType | null>(null)
-  const [rules, setRules] = useState<Record<string, AutoBanRule[]>>(defaultRules)
+  const [rules, setRules] = useState<Record<string, AutoBanRule[]>>({})
   const [showModal, setShowModal] = useState(false)
   const [nextId, setNextId] = useState(100)
 
   // ⭐ Auto-calculate state
-  const [capital, setCapital] = useState('')        // ทุน
-  const [maxLoss, setMaxLoss] = useState('')        // ยอมเสียสูงสุด
+  const [capital, setCapital] = useState('')
+  const [maxLoss, setMaxLoss] = useState('')
+
+  // ⭐ โหลดกฎ + ทุน จาก localStorage ตอน mount
+  useEffect(() => {
+    const savedRules = loadRulesFromStorage()
+    setRules(savedRules)
+    // หา next ID จากกฎที่มีอยู่
+    const allIds = Object.values(savedRules).flat().map(r => r.id)
+    if (allIds.length > 0) setNextId(Math.max(...allIds) + 1)
+
+    const savedCapital = loadCapitalFromStorage()
+    setCapital(savedCapital.capital)
+    setMaxLoss(savedCapital.maxLoss)
+  }, [])
   const [showPreview, setShowPreview] = useState(false)
   const [previewRules, setPreviewRules] = useState<{ betType: string; rate: number; threshold: number }[]>([])
 
@@ -137,15 +177,15 @@ export default function AutoBanPage() {
       status: 'active' as const,
     }))
 
-    setRules(prev => ({
-      ...prev,
-      [selectedType.code]: [...(prev[selectedType.code] || []), ...newRules],
-    }))
+    setRules(prev => {
+      const updated = { ...prev, [selectedType.code]: [...(prev[selectedType.code] || []), ...newRules] }
+      saveRulesToStorage(updated)
+      return updated
+    })
     setNextId(prev => prev + previewRules.length)
     setShowPreview(false)
-    setCapital('')
-    setMaxLoss('')
-    setPreviewRules([])
+    // บันทึกทุน + ยอมเสีย
+    saveCapitalToStorage(capital, maxLoss)
   }, [selectedType, previewRules, nextId])
 
   // เพิ่มกฎ (manual)
@@ -162,10 +202,11 @@ export default function AutoBanPage() {
       max_per_person: form.action === 'max_amount' ? Number(form.max_per_person) : undefined,
       status: 'active',
     }
-    setRules(prev => ({
-      ...prev,
-      [selectedType.code]: [...(prev[selectedType.code] || []), newRule],
-    }))
+    setRules(prev => {
+      const updated = { ...prev, [selectedType.code]: [...(prev[selectedType.code] || []), newRule] }
+      saveRulesToStorage(updated)
+      return updated
+    })
     setNextId(prev => prev + 1)
     setShowModal(false)
     setForm({ bet_type: '3 ตัวบน', threshold_amount: '', action: 'full_ban', reduce_rate_to: '', max_per_person: '' })
@@ -174,21 +215,26 @@ export default function AutoBanPage() {
   // ลบกฎ
   const handleDelete = useCallback((ruleId: number) => {
     if (!selectedType) return
-    setRules(prev => ({
-      ...prev,
-      [selectedType.code]: (prev[selectedType.code] || []).filter(r => r.id !== ruleId),
-    }))
+    setRules(prev => {
+      const updated = { ...prev, [selectedType.code]: (prev[selectedType.code] || []).filter(r => r.id !== ruleId) }
+      saveRulesToStorage(updated)
+      return updated
+    })
   }, [selectedType])
 
   // toggle สถานะ
   const handleToggle = useCallback((ruleId: number) => {
     if (!selectedType) return
-    setRules(prev => ({
-      ...prev,
-      [selectedType.code]: (prev[selectedType.code] || []).map(r =>
-        r.id === ruleId ? { ...r, status: r.status === 'active' ? 'inactive' : 'active' } : r
-      ),
-    }))
+    setRules(prev => {
+      const updated = {
+        ...prev,
+        [selectedType.code]: (prev[selectedType.code] || []).map(r =>
+          r.id === ruleId ? { ...r, status: r.status === 'active' ? 'inactive' : 'active' } : r
+        ),
+      }
+      saveRulesToStorage(updated)
+      return updated
+    })
   }, [selectedType])
 
   return (
@@ -373,6 +419,51 @@ export default function AutoBanPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ⭐ คำอธิบายเมื่อมีกฎแล้ว — อธิบายการทำงานพร้อมตัวอย่าง */}
+      {selectedType && currentRules.length > 0 && (
+        <div className="card-surface p-4 mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">💡</span>
+            <h3 className="text-sm font-bold">กฎเหล่านี้ทำงานยังไง?</h3>
+          </div>
+          <div className="text-xs text-[var(--text-secondary)] leading-relaxed space-y-3">
+            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+              <div className="font-bold text-[var(--text-primary)] mb-1">📌 สถานการณ์ตัวอย่าง</div>
+              คุณตั้ง <span className="text-yellow-400 font-bold">3 ตัวบน</span> threshold{' '}
+              <span className="text-yellow-400 font-bold">{fmtMoney(currentRules.find(r => r.bet_type === '3 ตัวบน')?.threshold_amount || 22)}</span>
+            </div>
+
+            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+              <div className="font-bold text-[var(--text-primary)] mb-1">📋 เมื่อมีคนแทง</div>
+              <div className="space-y-1.5 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400">✅</span>
+                  <span>ลูกค้า A แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿10 → ยอมรับ (ยอดรวม ฿10)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400">✅</span>
+                  <span>ลูกค้า B แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿8 → ยอมรับ (ยอดรวม ฿18)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-red-400">🚫</span>
+                  <span>ลูกค้า C แทง 3ตัวบน เลข <span className="font-mono text-yellow-400">847</span> = ฿10 → <span className="text-red-400 font-bold">อั้น!</span> (ยอดรวม ฿28 เกิน threshold)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+              <div className="font-bold text-[var(--text-primary)] mb-1">🛡️ ผลลัพธ์</div>
+              ถ้าเลข 847 ถูกจริง คุณจ่ายสูงสุดแค่ threshold × rate<br />
+              → <span className="text-green-400 font-bold">ไม่ขาดทุนเกินที่ตั้งไว้</span> ← ระบบปกป้องให้อัตโนมัติ
+            </div>
+
+            <div className="text-[10px] text-[var(--text-tertiary)]">
+              💡 สูตร: threshold = ยอมเสียสูงสุด ÷ rate → ระบบตรวจยอดรวมต่อเลขในแต่ละรอบ ถ้าเกิน threshold → อั้นเลขนั้นอัตโนมัติ
+            </div>
+          </div>
         </div>
       )}
 
