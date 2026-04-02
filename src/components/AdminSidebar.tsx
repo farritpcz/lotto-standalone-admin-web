@@ -79,6 +79,7 @@ export const menuGroups: { label: string; items: { href: string; label: string; 
       { href: '/settings', label: 'ตั้งค่า', icon: Settings },
       { href: '/settings/deposit-withdraw', label: 'ตั้งค่าฝาก/ถอน', icon: ArrowDownUp },
       { href: '/settings/bank-accounts', label: 'บัญชีฝาก/ถอน', icon: CreditCard },
+      { href: '/contact-channels', label: 'ช่องทางติดต่อ', icon: Bell },
       { href: '/settings/notifications', label: 'แจ้งเตือน', icon: Bell },
     ],
   },
