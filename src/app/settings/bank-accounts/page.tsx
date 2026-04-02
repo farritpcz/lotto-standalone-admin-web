@@ -44,7 +44,10 @@ interface BankAccount {
   account_number: string
   account_name: string
   is_default: boolean
-  status: string // 'active' | 'inactive'
+  status: string
+  rkauto_uuid?: string
+  rkauto_status?: string   // '' | 'registered' | 'active' | 'deactivated'
+  bank_system?: string     // SMS | BANK | KBIZ
 }
 
 /** ฟอร์มเพิ่ม/แก้ไขบัญชี */
@@ -248,6 +251,54 @@ export default function BankAccountsPage() {
     })
   }
 
+  // ─── RKAUTO Handlers ─────────────────────────────────────────
+  const handleRegisterRKAuto = async (acc: BankAccount) => {
+    const bankSystem = prompt('เลือกระบบ (SMS / BANK / KBIZ):')?.toUpperCase()
+    if (!bankSystem || !['SMS', 'BANK', 'KBIZ'].includes(bankSystem)) {
+      setMessage({ type: 'error', text: 'กรุณาเลือก SMS, BANK หรือ KBIZ' }); return
+    }
+    const username = prompt('Bank Username (login ธนาคาร):')
+    const password = prompt('Bank Password:')
+    if (!username || !password) { setMessage({ type: 'error', text: 'กรุณากรอก username/password' }); return }
+
+    let mobileNumber = ''
+    let bankCode = ''
+    if (bankSystem === 'SMS') {
+      mobileNumber = prompt('เบอร์โทร (สำหรับ SMS):') || ''
+    } else if (bankSystem === 'BANK') {
+      bankCode = prompt('Bank Code (GSB/TMW):')?.toUpperCase() || acc.bank_code
+    }
+
+    try {
+      await api.post(`/bank-accounts/${acc.id}/register-rkauto`, {
+        bank_system: bankSystem, username, password,
+        mobile_number: mobileNumber, bank_code: bankCode,
+        is_deposit: true, is_withdraw: true,
+      })
+      setMessage({ type: 'success', text: `เชื่อม RKAUTO สำเร็จ (${bankSystem})` })
+      loadAccounts()
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } }
+      setMessage({ type: 'error', text: 'RKAUTO: ' + (err.response?.data?.error || 'เกิดข้อผิดพลาด') })
+    }
+  }
+
+  const handleActivateRKAuto = async (acc: BankAccount) => {
+    try {
+      await api.post(`/bank-accounts/${acc.id}/activate-rkauto`)
+      setMessage({ type: 'success', text: 'เปิดใช้ RKAUTO สำเร็จ' })
+      loadAccounts()
+    } catch { setMessage({ type: 'error', text: 'เปิดใช้ RKAUTO ล้มเหลว' }) }
+  }
+
+  const handleDeactivateRKAuto = async (acc: BankAccount) => {
+    try {
+      await api.post(`/bank-accounts/${acc.id}/deactivate-rkauto`)
+      setMessage({ type: 'success', text: 'ปิด RKAUTO สำเร็จ' })
+      loadAccounts()
+    } catch { setMessage({ type: 'error', text: 'ปิด RKAUTO ล้มเหลว' }) }
+  }
+
   /**
    * บันทึกตั้งค่าฝาก/ถอน
    */
@@ -318,6 +369,7 @@ export default function BankAccountsPage() {
                 <th>ชื่อบัญชี</th>
                 <th>สถานะ</th>
                 <th>บัญชีหลัก</th>
+                <th>RKAUTO</th>
                 <th style={{ textAlign: 'right' }}>จัดการ</th>
               </tr>
             </thead>
@@ -353,15 +405,42 @@ export default function BankAccountsPage() {
                       <span className="badge badge-info">หลัก</span>
                     )}
                   </td>
-                  {/* จัดการ: แก้ไข / ลบ */}
+                  {/* RKAUTO Status */}
+                  <td>
+                    {acc.rkauto_uuid ? (
+                      <span className={`badge ${acc.rkauto_status === 'active' ? 'badge-success' : acc.rkauto_status === 'registered' ? 'badge-warning' : 'badge-neutral'}`}
+                        style={{ fontSize: 10 }}>
+                        RKAUTO: {acc.rkauto_status || 'registered'}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>ยังไม่เชื่อม</span>
+                    )}
+                  </td>
+                  {/* จัดการ: แก้ไข / RKAUTO / ลบ */}
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       <button className="btn btn-ghost" onClick={() => openEditModal(acc)}
-                        style={{ height: 28, padding: '0 8px', fontSize: 12 }}>
+                        style={{ height: 26, padding: '0 6px', fontSize: 11 }}>
                         แก้ไข
                       </button>
+                      {!acc.rkauto_uuid ? (
+                        <button className="btn btn-primary" onClick={() => handleRegisterRKAuto(acc)}
+                          style={{ height: 26, padding: '0 8px', fontSize: 11 }}>
+                          เชื่อม RKAUTO
+                        </button>
+                      ) : acc.rkauto_status === 'registered' || acc.rkauto_status === 'deactivated' ? (
+                        <button className="btn btn-success" onClick={() => handleActivateRKAuto(acc)}
+                          style={{ height: 26, padding: '0 8px', fontSize: 11 }}>
+                          เปิดใช้
+                        </button>
+                      ) : acc.rkauto_status === 'active' ? (
+                        <button className="btn btn-ghost" onClick={() => handleDeactivateRKAuto(acc)}
+                          style={{ height: 26, padding: '0 6px', fontSize: 11, color: 'var(--status-warning)' }}>
+                          ปิด RKAUTO
+                        </button>
+                      ) : null}
                       <button className="btn btn-danger" onClick={() => handleDelete(acc)}
-                        style={{ height: 28, padding: '0 8px', fontSize: 12 }}>
+                        style={{ height: 26, padding: '0 6px', fontSize: 11 }}>
                         ลบ
                       </button>
                     </div>
