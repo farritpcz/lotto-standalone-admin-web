@@ -43,21 +43,28 @@ const actionConfig: Record<string, { cls: string; label: string; icon: string }>
 }
 
 /* ── Default rates ต่อประเภทหวย (ใช้คำนวณ threshold อัตโนมัติ) ──────── */
-interface BetTypeRate { betType: string; rate: number }
+// ⭐ betType ใช้ CODE (3TOP, 2TOP ฯลฯ) ให้ตรงกับ backend
+interface BetTypeRate { betType: string; label: string; rate: number }
 
-const DEFAULT_RATES: Record<string, BetTypeRate[]> = {
-  THAI:          [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '3 ตัวล่าง', rate: 650 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
-  LAO:           [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '3 ตัวล่าง', rate: 650 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
-  YEEKEE:        [{ betType: '3 ตัวบน', rate: 1000 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 100 }, { betType: '2 ตัวล่าง', rate: 100 }, { betType: 'วิ่งบน', rate: 4 }, { betType: 'วิ่งล่าง', rate: 5 }],
-  STOCK_TH:      [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
-  STOCK_FOREIGN: [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
+// map code → ชื่อไทย สำหรับแสดงผล
+const BET_TYPE_LABELS: Record<string, string> = {
+  '3TOP': '3 ตัวบน', '3TOD': '3 ตัวโต๊ด', '3BOTTOM': '3 ตัวล่าง',
+  '2TOP': '2 ตัวบน', '2BOTTOM': '2 ตัวล่าง',
+  'RUN_TOP': 'วิ่งบน', 'RUN_BOT': 'วิ่งล่าง',
 }
 
-// Fallback สำหรับ lottery type ที่ไม่มีใน DEFAULT_RATES
+const DEFAULT_RATES: Record<string, BetTypeRate[]> = {
+  THAI:          [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '3BOTTOM', label: '3 ตัวล่าง', rate: 650 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
+  LAO:           [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '3BOTTOM', label: '3 ตัวล่าง', rate: 650 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
+  YEEKEE:        [{ betType: '3TOP', label: '3 ตัวบน', rate: 1000 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 100 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 100 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 4 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 5 }],
+  STOCK_TH:      [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
+  STOCK_FOREIGN: [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
+}
+
 const FALLBACK_RATES: BetTypeRate[] = [
-  { betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 },
-  { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 },
-  { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 },
+  { betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 },
+  { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 },
+  { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 },
 ]
 
 /* ── localStorage key ──────────────────────────────────────────────────── */
@@ -91,6 +98,8 @@ function saveCapitalToStorage(capital: string, maxLoss: string) {
 }
 
 const fmtMoney = (n: number) => `฿${n.toLocaleString()}`
+// แปลง bet type code → ชื่อไทย
+const getBetTypeLabel = (code: string) => BET_TYPE_LABELS[code] || code
 
 export default function AutoBanPage() {
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
@@ -173,56 +182,56 @@ export default function AutoBanPage() {
       // ⭐ 8 ระดับขั้นบันได — กระจายการลดเรท 6 ขั้น
       // ระดับ 1: จำกัดยอดต่อคน — ที่ 40%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.4),
         action: 'max_amount', reducedRate: 0,
         label: 'จำกัดยอด (40%)',
       })
       // ระดับ 2: ลดเรท 10% — ที่ 50%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.5),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.9),
         label: 'ลดเรท 10% (50%)',
       })
       // ระดับ 3: ลดเรท 20% — ที่ 60%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.6),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.8),
         label: 'ลดเรท 20% (60%)',
       })
       // ระดับ 4: ลดเรท 35% — ที่ 70%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.7),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.65),
         label: 'ลดเรท 35% (70%)',
       })
       // ระดับ 5: ลดเรท 50% — ที่ 80%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.8),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.5),
         label: 'ลดเรท 50% (80%)',
       })
       // ระดับ 6: ลดเรท 65% — ที่ 88%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.88),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.35),
         label: 'ลดเรท 65% (88%)',
       })
       // ระดับ 7: ลดเรท 80% — ที่ 95%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.95),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.2),
         label: 'ลดเรท 80% (95%)',
       })
       // ระดับ 8: อั้นเต็ม — ที่ 100%
       calculated.push({
-        betType: r.betType, rate: r.rate,
+        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
         threshold: fullThreshold,
         action: 'full_ban', reducedRate: 0,
         label: 'อั้นเต็ม (100%)',
@@ -281,7 +290,7 @@ export default function AutoBanPage() {
     const rule = currentRules.find(r => r.id === ruleId)
     setDialog({
       title: 'ลบกฎอั้น',
-      message: `ลบกฎ ${rule?.bet_type || ''} (threshold ${fmtMoney(rule?.threshold_amount || 0)})?`,
+      message: `ลบกฎ ${getBetTypeLabel(rule?.bet_type || '')} (threshold ${fmtMoney(rule?.threshold_amount || 0)})?`,
       type: 'warning',
       confirmLabel: 'ลบ',
       onConfirm: async () => {
@@ -508,7 +517,7 @@ export default function AutoBanPage() {
                     <div key={betType} className="p-4">
                       {/* Header */}
                       <div className="flex items-center gap-3 mb-3">
-                        <span className="font-bold text-sm">{betType}</span>
+                        <span className="font-bold text-sm">{getBetTypeLabel(betType)}</span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
                           rate x{rate}
                         </span>
@@ -582,7 +591,7 @@ export default function AutoBanPage() {
         // ดึง threshold จริงของ 3 ตัวบน (หรือ bet type แรก) มาทำตัวอย่าง
         const exRule = currentRules.find(r => r.bet_type === '3TOP') || currentRules[0]
         const th = Math.floor(exRule.threshold_amount)
-        const betTypeName = exRule.bet_type === '3TOP' ? '3ตัวบน' : exRule.bet_type
+        const betTypeName = getBetTypeLabel(exRule.bet_type)
         const rate = exRule.rate || 900
 
         // หา 3 ระดับของ bet type นี้
@@ -670,7 +679,7 @@ export default function AutoBanPage() {
         <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-6">
           <div className="card-surface p-6 max-w-md w-full rounded-xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold">แก้ไขกฎอั้น — {editingRule.bet_type}</h3>
+              <h3 className="text-base font-bold">แก้ไขกฎอั้น — {getBetTypeLabel(editingRule.bet_type)}</h3>
               <button onClick={() => setEditingRule(null)} className="btn btn-ghost text-lg">✕</button>
             </div>
 
