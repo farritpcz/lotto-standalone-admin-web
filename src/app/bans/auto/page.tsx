@@ -415,52 +415,73 @@ export default function AutoBanPage() {
               </button>
             </div>
           ) : (
+            /* ⭐ จัดกลุ่มตาม bet type — แสดง 3 ระดับในแถวเดียว อ่านง่าย */
             <div className="divide-y divide-[var(--border-color)]">
-              {currentRules.map(r => {
-                const ac = actionConfig[r.action] || actionConfig.full_ban
-                return (
-                  <div key={r.id} className="p-4 flex items-center gap-4 hover:bg-[var(--bg-secondary)] transition-colors">
-                    {/* Action icon */}
-                    <div className="text-2xl">{ac.icon}</div>
+              {(() => {
+                // จัดกลุ่ม rules ตาม bet_type
+                const grouped: Record<string, typeof currentRules> = {}
+                currentRules.forEach(r => {
+                  if (!grouped[r.bet_type]) grouped[r.bet_type] = []
+                  grouped[r.bet_type].push(r)
+                })
+                // เรียงตาม action: max_amount → reduce_rate → full_ban
+                const actionOrder: Record<string, number> = { max_amount: 0, reduce_rate: 1, full_ban: 2 }
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{r.bet_type}</span>
-                        <span className={`badge ${ac.cls}`}>{ac.label}</span>
-                        <span className={`badge ${r.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
-                          {r.status === 'active' ? 'เปิด' : 'ปิด'}
-                        </span>
+                return Object.entries(grouped).map(([betType, rules]) => {
+                  const sorted = [...rules].sort((a, b) => (actionOrder[a.action] ?? 9) - (actionOrder[b.action] ?? 9))
+                  const rate = sorted[0]?.rate || 0
+
+                  return (
+                    <div key={betType} className="p-4">
+                      {/* Header — ชื่อ bet type + rate */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm">{betType}</span>
+                          {rate > 0 && <span className="text-[10px] text-[var(--text-tertiary)]">rate x{rate}</span>}
+                        </div>
                       </div>
-                      <div className="text-xs text-[var(--text-tertiary)]">
-                        Threshold: <span className="font-mono font-bold text-yellow-400">{fmtMoney(r.threshold_amount)}</span>
-                        {r.action === 'reduce_rate' && r.reduced_rate > 0 && (
-                          <span className="ml-3">ลดเรทเหลือ x{r.reduced_rate}</span>
-                        )}
-                        {r.rate > 0 && (
-                          <span className="ml-3 text-[var(--text-tertiary)]">rate x{r.rate}</span>
-                        )}
+
+                      {/* 3 ระดับในแถวเดียว */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {sorted.map(r => {
+                          const ac = actionConfig[r.action] || actionConfig.full_ban
+                          return (
+                            <div
+                              key={r.id}
+                              className="rounded-lg p-3 text-center cursor-pointer hover:opacity-80 transition-all"
+                              onClick={() => setEditingRule({ ...r })}
+                              style={{
+                                background: r.action === 'full_ban' ? 'rgba(239,68,68,0.08)'
+                                  : r.action === 'reduce_rate' ? 'rgba(245,166,35,0.08)'
+                                  : 'rgba(59,130,246,0.08)',
+                                border: `1px solid ${r.action === 'full_ban' ? 'rgba(239,68,68,0.2)'
+                                  : r.action === 'reduce_rate' ? 'rgba(245,166,35,0.2)'
+                                  : 'rgba(59,130,246,0.2)'}`,
+                              }}
+                            >
+                              <div className="text-lg mb-1">{ac.icon}</div>
+                              <div className="text-[10px] font-semibold mb-1" style={{
+                                color: r.action === 'full_ban' ? '#ef4444'
+                                  : r.action === 'reduce_rate' ? '#f5a623'
+                                  : '#3b82f6',
+                              }}>
+                                {ac.label}
+                              </div>
+                              <div className="text-base font-bold text-yellow-400 font-mono">
+                                {fmtMoney(r.threshold_amount)}
+                              </div>
+                              {r.action === 'reduce_rate' && r.reduced_rate > 0 && (
+                                <div className="text-[9px] text-[var(--text-tertiary)] mt-0.5">เรท x{r.reduced_rate}</div>
+                              )}
+                              <div className="text-[9px] text-[var(--text-tertiary)] mt-1">กดเพื่อแก้ไข</div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingRule({ ...r })}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
-                      >
-                        แก้ไข
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
-                      >
-                        ลบ
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              })()}
             </div>
           )}
         </div>
