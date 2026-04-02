@@ -96,6 +96,7 @@ export default function AutoBanPage() {
   const [selectedType, setSelectedType] = useState<LotteryType | null>(null)
   const [dbRules, setDbRules] = useState<AutoBanRuleData[]>([]) // กฎจาก DB
   const [showModal, setShowModal] = useState(false)
+  const [editingRule, setEditingRule] = useState<AutoBanRuleData | null>(null) // กฎที่กำลังแก้ไข
   const [nextId, setNextId] = useState(100)
   const [saving, setSaving] = useState(false)
 
@@ -223,13 +224,19 @@ export default function AutoBanPage() {
     } catch { /* ignore */ }
   }, [loadRules])
 
-  // toggle — ลบแล้วสร้างใหม่ (API ไม่มี toggle)
-  const handleToggle = useCallback(async (ruleId: number) => {
+  // แก้ไขกฎ — ผ่าน API
+  const handleEdit = useCallback(async () => {
+    if (!editingRule) return
     try {
-      await autoBanApi.delete(ruleId)
+      await autoBanApi.update(editingRule.id, {
+        threshold_amount: editingRule.threshold_amount,
+        action: editingRule.action,
+        reduced_rate: editingRule.reduced_rate,
+      })
+      setEditingRule(null)
       await loadRules()
     } catch { /* ignore */ }
-  }, [loadRules])
+  }, [editingRule, loadRules])
 
   return (
     <div className="page-container">
@@ -394,6 +401,12 @@ export default function AutoBanPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setEditingRule({ ...r })}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
                         onClick={() => handleDelete(r.id)}
                         className="px-3 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
                       >
@@ -466,6 +479,68 @@ export default function AutoBanPage() {
           </div>
         )
       })()}
+
+      {/* ── Edit Rule Modal ────────────────────────────────────────────────── */}
+      {editingRule && (
+        <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-6">
+          <div className="card-surface p-6 max-w-md w-full rounded-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold">แก้ไขกฎอั้น — {editingRule.bet_type}</h3>
+              <button onClick={() => setEditingRule(null)} className="btn btn-ghost text-lg">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] mb-1 block">Threshold (฿)</label>
+                <input
+                  type="number"
+                  value={editingRule.threshold_amount}
+                  onChange={e => setEditingRule({ ...editingRule, threshold_amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--border-color)]"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] mb-1 block">Action</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(actionConfig).filter(([k]) => k !== 'max_amount').map(([key, cfg]) => (
+                    <button
+                      key={key}
+                      onClick={() => setEditingRule({ ...editingRule, action: key })}
+                      className={`py-2 rounded-lg text-xs font-semibold transition-all ${
+                        editingRule.action === key ? 'text-white shadow-md' : 'text-[var(--text-secondary)]'
+                      }`}
+                      style={{ background: editingRule.action === key ? 'var(--accent-primary)' : 'var(--bg-tertiary)' }}
+                    >
+                      {cfg.icon} {cfg.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {editingRule.action === 'reduce_rate' && (
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-tertiary)] mb-1 block">ลดเรทเหลือ (x)</label>
+                  <input
+                    type="number"
+                    value={editingRule.reduced_rate}
+                    onChange={e => setEditingRule({ ...editingRule, reduced_rate: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--border-color)]"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    placeholder="500"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setEditingRule(null)} className="btn btn-ghost flex-1">ยกเลิก</button>
+              <button onClick={handleEdit} className="btn btn-primary flex-1">บันทึก</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add Rule Modal ─────────────────────────────────────────────────── */}
       {showModal && (

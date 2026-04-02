@@ -276,6 +276,10 @@ export const autoBanApi = {
     rules: { bet_type: string; threshold_amount: number; action: string; rate: number }[]
   }) => api.post('/auto-ban-rules/bulk', data),
 
+  /** แก้ไขกฎ */
+  update: (id: number, data: Partial<AutoBanRuleData>) =>
+    api.put(`/auto-ban-rules/${id}`, data),
+
   /** ลบกฎ (soft delete) */
   delete: (id: number) => api.delete(`/auto-ban-rules/${id}`),
 }
