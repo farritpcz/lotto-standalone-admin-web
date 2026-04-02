@@ -13,7 +13,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { withdrawApi } from '@/lib/api'
+import { withdrawApi, api } from '@/lib/api'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
@@ -79,9 +79,9 @@ export default function WithdrawalsPage() {
   const doApprove = async (row: WithdrawRow, mode: 'auto' | 'manual') => {
     setApproveModal(null); setActionLoading(row.id)
     try {
-      await withdrawApi.approve(row.id) // TODO: ส่ง mode ไป API
+      await api.put(`/withdrawals/${row.id}/approve`, { mode })
       fetchData()
-    } catch { alert('เกิดข้อผิดพลาด') }
+    } catch { /* toast error */ }
     finally { setActionLoading(null) }
   }
 
