@@ -1,20 +1,15 @@
 /**
  * =============================================================================
- * Admin — Yeekee Monitor (ยี่กี)
+ * Admin — Yeekee Monitor (ยี่กี) — แสดงรอบแบบ card คล้ายหน้าสมาชิก
  * =============================================================================
  *
- * หน้านี้แสดงรอบยี่กีทั้งหมดของวันนี้ + สถิติ real-time
  * - stat cards: รอบทั้งหมด, กำลังยิง, ออกผลแล้ว, กำไร
  * - filter tabs: All / Shooting / Waiting / Resulted
- * - data table: round_no, status, time, shoots, result, bets, payout
+ * - ⭐ แสดงรอบเป็น card (gradient + countdown) แบบ member-web
  * - auto-refresh ทุก 10 วินาที
+ * - คลิกรอบ → หน้า detail /yeekee/[id]
  *
  * API: yeekeeMgmtApi.listRounds(), yeekeeMgmtApi.getStats()
- *
- * ความสัมพันธ์:
- * - ยี่กีสร้างรอบอัตโนมัติ 88 รอบ/วัน โดย cron job ใน member-api (#3)
- * - ผลคำนวณอัตโนมัติจากเลขที่สมาชิกยิง (ไม่ต้อง admin กรอก)
- * - คลิกรอบ → ไปหน้า detail /yeekee/[id]
  * =============================================================================
  */
 'use client'
@@ -23,12 +18,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { yeekeeMgmtApi, YeekeeRound, YeekeeStats } from '@/lib/api'
 
-// สถานะ → badge class + ชื่อไทย
-const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
-  waiting:     { badge: 'badge-neutral',  label: 'รอเริ่ม' },
-  shooting:    { badge: 'badge-success',  label: 'กำลังยิง' },
-  calculating: { badge: 'badge-warning',  label: 'คำนวณ' },
-  resulted:    { badge: 'badge-primary',  label: 'ออกผลแล้ว' },
+// สถานะ → badge + label
+const STATUS_CONFIG: Record<string, { badge: string; label: string; color: string }> = {
+  waiting:     { badge: 'badge-neutral',  label: 'รอเริ่ม',     color: '#8E8E93' },
+  shooting:    { badge: 'badge-success',  label: 'กำลังยิง',    color: '#34d399' },
+  calculating: { badge: 'badge-warning',  label: 'คำนวณ',       color: '#fbbf24' },
+  resulted:    { badge: 'badge-primary',  label: 'ออกผลแล้ว',   color: '#60a5fa' },
 }
 
 const FILTERS = [
@@ -38,6 +33,140 @@ const FILTERS = [
   { value: 'resulted',   label: 'ออกผลแล้ว' },
 ]
 
+// =============================================================================
+// Countdown Hook
+// =============================================================================
+function useCountdown(targetTime: string) {
+  const [total, setTotal] = useState(0)
+
+  useEffect(() => {
+    const calc = () => {
+      const diff = Math.max(0, new Date(targetTime).getTime() - Date.now())
+      setTotal(diff)
+      return diff
+    }
+    const diff = calc()
+    if (diff <= 0) return
+    const timer = setInterval(() => {
+      if (calc() <= 0) clearInterval(timer)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [targetTime])
+
+  const hours = Math.floor((total / (1000 * 60 * 60)) % 24)
+  const minutes = Math.floor((total / (1000 * 60)) % 60)
+  const seconds = Math.floor((total / 1000) % 60)
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  return { total, text: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` }
+}
+
+// =============================================================================
+// Round Card — แบบ gradient คล้ายหน้าสมาชิก (dark theme)
+// =============================================================================
+function YeekeeRoundCard({ round, onClick }: { round: YeekeeRound; onClick: () => void }) {
+  const countdown = useCountdown(round.end_time)
+  const isShooting = round.status === 'shooting'
+  const isResulted = round.status === 'resulted'
+  const isExpired = countdown.total <= 0
+
+  const closeDate = new Date(round.end_time)
+  const closeTimeStr = closeDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const startTimeStr = new Date(round.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-xl overflow-hidden transition-transform hover:scale-[1.02] active:scale-[0.98]"
+      style={{ opacity: isExpired && !isResulted ? 0.5 : 1 }}
+    >
+      {/* Card body — gradient */}
+      <div
+        className="relative p-3"
+        style={{
+          background: isResulted
+            ? 'linear-gradient(135deg, #1a3a5f 0%, #1e3a2a 100%)'
+            : 'linear-gradient(135deg, #0d6e6e 0%, #14956e 50%, #1a472a 100%)',
+          minHeight: '100px',
+        }}
+      >
+        {/* ลายตัวเลข */}
+        <div className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ctext x='3' y='20' font-size='14' fill='white' font-family='monospace'%3E8%3C/text%3E%3Ctext x='20' y='10' font-size='12' fill='white' font-family='monospace'%3E3%3C/text%3E%3Ctext x='25' y='32' font-size='13' fill='white' font-family='monospace'%3E7%3C/text%3E%3C/svg%3E")`,
+            backgroundSize: '40px 40px',
+          }}
+        />
+
+        {/* LIVE badge */}
+        {isShooting && (
+          <div className="absolute top-2 right-2">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white"
+              style={{ backgroundColor: 'rgba(52, 199, 89, 0.9)' }}>
+              <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
+              LIVE
+            </span>
+          </div>
+        )}
+
+        {/* ข้อมูลรอบ */}
+        <div className="relative z-10 flex items-start gap-2">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white"
+            style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+            ยี่กี
+          </div>
+          <div className="text-white min-w-0">
+            <div className="font-bold text-sm">รอบที่ {round.round_no}</div>
+            <div className="text-[11px] opacity-80">{startTimeStr} - {closeTimeStr}</div>
+            <div className="text-[11px] opacity-80">ยิง {round.total_shoots || 0} เลข</div>
+          </div>
+        </div>
+
+        {/* ผลยี่กี */}
+        {isResulted && round.result_number && (
+          <div className="relative z-10 mt-2 flex items-center gap-2">
+            <div className="bg-white/20 rounded-lg px-2 py-1 text-center flex-1">
+              <div className="text-white text-[9px] opacity-70">ผล</div>
+              <div className="text-yellow-300 text-base font-mono font-bold">{round.result_number}</div>
+            </div>
+            <div className="flex gap-1 text-[10px] text-white/80">
+              <div className="bg-white/10 rounded px-1.5 py-0.5">
+                <div className="opacity-60">3บ</div>
+                <div className="font-mono font-bold">{round.lottery_round?.result_top3 || '-'}</div>
+              </div>
+              <div className="bg-white/10 rounded px-1.5 py-0.5">
+                <div className="opacity-60">2บ</div>
+                <div className="font-mono font-bold">{round.lottery_round?.result_top2 || '-'}</div>
+              </div>
+              <div className="bg-white/10 rounded px-1.5 py-0.5">
+                <div className="opacity-60">2ล</div>
+                <div className="font-mono font-bold">{round.lottery_round?.result_bottom2 || '-'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Countdown bar */}
+      <div className="px-2 py-1.5 flex items-center justify-center gap-1.5"
+        style={{ background: '#1e1e2e', borderTop: '1px solid #2e2e42' }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke={isExpired ? '#fbbf24' : '#34d399'}
+          strokeWidth={2} className="w-3 h-3">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <span className="text-[11px] font-semibold"
+          style={{ color: isExpired ? '#fbbf24' : '#34d399' }}>
+          {isResulted ? 'ออกผลแล้ว' : isExpired ? 'หมดเวลา' : countdown.text}
+        </span>
+      </div>
+    </button>
+  )
+}
+
+// =============================================================================
+// Main Page
+// =============================================================================
 export default function YeekeeMonitorPage() {
   const router = useRouter()
   const [rounds, setRounds] = useState<YeekeeRound[]>([])
@@ -46,9 +175,8 @@ export default function YeekeeMonitorPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const perPage = 20
+  const perPage = 40
 
-  // Fetch data
   const fetchData = useCallback(async () => {
     try {
       const params: Record<string, unknown> = { page, per_page: perPage }
@@ -71,15 +199,9 @@ export default function YeekeeMonitorPage() {
 
   useEffect(() => {
     fetchData()
-    // Auto-refresh ทุก 10 วินาที
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
   }, [fetchData])
-
-  const formatTime = (t: string) => {
-    try { return new Date(t).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }
-    catch { return '-' }
-  }
 
   const totalPages = Math.ceil(total / perPage)
 
@@ -134,77 +256,53 @@ export default function YeekeeMonitorPage() {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="card-surface">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>รอบ</th>
-              <th>สถานะ</th>
-              <th>เวลา</th>
-              <th>ยิง</th>
-              <th>ผล</th>
-              <th>3 บน</th>
-              <th>2 บน</th>
-              <th>2 ล่าง</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-[var(--text-tertiary)]">กำลังโหลด...</td></tr>
-            ) : rounds.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-[var(--text-tertiary)]">ไม่พบรอบยี่กี</td></tr>
-            ) : (
-              rounds.map(r => {
-                const cfg = STATUS_CONFIG[r.status] || { badge: 'badge-neutral', label: r.status }
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={() => router.push(`/yeekee/${r.id}`)}
-                    className="cursor-pointer hover:bg-[var(--bg-secondary)]"
-                  >
-                    <td className="font-mono font-bold">#{r.round_no}</td>
-                    <td><span className={`badge ${cfg.badge}`}>{cfg.label}</span></td>
-                    <td className="text-sm">{formatTime(r.start_time)} - {formatTime(r.end_time)}</td>
-                    <td>{r.total_shoots || 0}</td>
-                    <td className="font-mono font-bold text-yellow-400">
-                      {r.result_number || '-'}
-                    </td>
-                    <td className="font-mono">{r.lottery_round?.result_top3 || '-'}</td>
-                    <td className="font-mono">{r.lottery_round?.result_top2 || '-'}</td>
-                    <td className="font-mono">{r.lottery_round?.result_bottom2 || '-'}</td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+      {/* ⭐ Round Cards — แบบ gradient คล้ายหน้าสมาชิก */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <div key={i} className="rounded-xl overflow-hidden" style={{ background: '#1e1e2e', height: '140px' }} />
+          ))}
+        </div>
+      ) : rounds.length === 0 ? (
+        <div className="card-surface p-12 text-center text-[var(--text-tertiary)]">
+          ไม่พบรอบยี่กี
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {rounds.map(r => (
+            <YeekeeRoundCard
+              key={r.id}
+              round={r}
+              onClick={() => router.push(`/yeekee/${r.id}`)}
+            />
+          ))}
+        </div>
+      )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-[var(--border-color)]">
-            <span className="text-sm text-[var(--text-tertiary)]">
-              แสดง {((page - 1) * perPage) + 1}-{Math.min(page * perPage, total)} จาก {total} รอบ
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="btn btn-ghost btn-sm"
-              >
-                ก่อนหน้า
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="btn btn-ghost btn-sm"
-              >
-                ถัดไป
-              </button>
-            </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-[var(--text-tertiary)]">
+            แสดง {((page - 1) * perPage) + 1}-{Math.min(page * perPage, total)} จาก {total} รอบ
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="btn btn-ghost btn-sm"
+            >
+              ก่อนหน้า
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="btn btn-ghost btn-sm"
+            >
+              ถัดไป
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
