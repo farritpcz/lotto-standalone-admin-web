@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { lotteryMgmtApi, autoBanApi, AutoBanRuleData } from '@/lib/api'
+import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface AutoBanRule {
@@ -96,7 +97,8 @@ export default function AutoBanPage() {
   const [selectedType, setSelectedType] = useState<LotteryType | null>(null)
   const [dbRules, setDbRules] = useState<AutoBanRuleData[]>([]) // กฎจาก DB
   const [showModal, setShowModal] = useState(false)
-  const [editingRule, setEditingRule] = useState<AutoBanRuleData | null>(null) // กฎที่กำลังแก้ไข
+  const [editingRule, setEditingRule] = useState<AutoBanRuleData | null>(null)
+  const [dialog, setDialog] = useState<ConfirmDialogProps | null>(null)
   const [nextId, setNextId] = useState(100)
   const [saving, setSaving] = useState(false)
 
@@ -253,22 +255,42 @@ export default function AutoBanPage() {
     } catch { /* ignore */ }
   }, [selectedType, form, loadRules])
 
-  // ลบกฎ — ผ่าน API
-  const handleDelete = useCallback(async (ruleId: number) => {
-    try {
-      await autoBanApi.delete(ruleId)
-      await loadRules()
-    } catch { /* ignore */ }
-  }, [loadRules])
+  // ลบกฎ — ใช้ ConfirmDialog
+  const handleDelete = useCallback((ruleId: number) => {
+    const rule = currentRules.find(r => r.id === ruleId)
+    setDialog({
+      title: 'ลบกฎอั้น',
+      message: `ลบกฎ ${rule?.bet_type || ''} (threshold ${fmtMoney(rule?.threshold_amount || 0)})?`,
+      type: 'warning',
+      confirmLabel: 'ลบ',
+      onConfirm: async () => {
+        setDialog(null)
+        try {
+          await autoBanApi.delete(ruleId)
+          await loadRules()
+        } catch { /* ignore */ }
+      },
+      onCancel: () => setDialog(null),
+    })
+  }, [currentRules, loadRules])
 
-  // เคลียร์กฎทั้งหมดของประเภทหวยที่เลือก
-  const handleClearAll = useCallback(async () => {
+  // เคลียร์กฎทั้งหมดของประเภทหวยที่เลือก — ใช้ ConfirmDialog
+  const handleClearAll = useCallback(() => {
     if (!selectedType || currentRules.length === 0) return
-    if (!confirm(`ลบกฎอั้นทั้งหมดของ ${selectedType.name} (${currentRules.length} กฎ)?`)) return
-    try {
-      await Promise.all(currentRules.map(r => autoBanApi.delete(r.id)))
-      await loadRules()
-    } catch { /* ignore */ }
+    setDialog({
+      title: 'เคลียร์กฎทั้งหมด',
+      message: `ลบกฎอั้นอัตโนมัติทั้งหมดของ ${selectedType.name} (${currentRules.length} กฎ)?\n\nสามารถคำนวณใหม่ได้ตลอด`,
+      type: 'danger',
+      confirmLabel: 'เคลียร์ทั้งหมด',
+      onConfirm: async () => {
+        setDialog(null)
+        try {
+          await Promise.all(currentRules.map(r => autoBanApi.delete(r.id)))
+          await loadRules()
+        } catch { /* ignore */ }
+      },
+      onCancel: () => setDialog(null),
+    })
   }, [selectedType, currentRules, loadRules])
 
   // แก้ไขกฎ — ผ่าน API
@@ -763,6 +785,8 @@ export default function AutoBanPage() {
           </div>
         </div>
       )}
+      {/* ConfirmDialog */}
+      {dialog && <ConfirmDialog {...dialog} />}
     </div>
   )
 }
