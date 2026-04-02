@@ -41,6 +41,24 @@ const actionConfig: Record<string, { cls: string; label: string; icon: string }>
   max_amount:  { cls: 'badge-info',    label: 'จำกัดยอด',  icon: '📊' },
 }
 
+/* ── Default rates ต่อประเภทหวย (ใช้คำนวณ threshold อัตโนมัติ) ──────── */
+interface BetTypeRate { betType: string; rate: number }
+
+const DEFAULT_RATES: Record<string, BetTypeRate[]> = {
+  THAI:          [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '3 ตัวล่าง', rate: 650 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
+  LAO:           [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '3 ตัวล่าง', rate: 650 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
+  YEEKEE:        [{ betType: '3 ตัวบน', rate: 1000 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 100 }, { betType: '2 ตัวล่าง', rate: 100 }, { betType: 'วิ่งบน', rate: 4 }, { betType: 'วิ่งล่าง', rate: 5 }],
+  STOCK_TH:      [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
+  STOCK_FOREIGN: [{ betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 }, { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 }, { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 }],
+}
+
+// Fallback สำหรับ lottery type ที่ไม่มีใน DEFAULT_RATES
+const FALLBACK_RATES: BetTypeRate[] = [
+  { betType: '3 ตัวบน', rate: 900 }, { betType: '3 ตัวโต๊ด', rate: 150 },
+  { betType: '2 ตัวบน', rate: 90 }, { betType: '2 ตัวล่าง', rate: 90 },
+  { betType: 'วิ่งบน', rate: 3.2 }, { betType: 'วิ่งล่าง', rate: 4.2 },
+]
+
 /* ── Mock rules per lottery type ───────────────────────────────────────── */
 const defaultRules: Record<string, AutoBanRule[]> = {}
 
@@ -52,6 +70,13 @@ export default function AutoBanPage() {
   const [rules, setRules] = useState<Record<string, AutoBanRule[]>>(defaultRules)
   const [showModal, setShowModal] = useState(false)
   const [nextId, setNextId] = useState(100)
+
+  // ⭐ Auto-calculate state
+  const [capital, setCapital] = useState('')        // ทุน
+  const [maxLoss, setMaxLoss] = useState('')        // ยอมเสียสูงสุด
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewRules, setPreviewRules] = useState<{ betType: string; rate: number; threshold: number }[]>([])
+
   const [form, setForm] = useState({
     bet_type: '3 ตัวบน',
     threshold_amount: '',
@@ -82,7 +107,48 @@ export default function AutoBanPage() {
 
   const currentRules = selectedType ? (rules[selectedType.code] || []) : []
 
-  // เพิ่มกฎ
+  // ⭐ คำนวณ threshold อัตโนมัติจากทุน + ยอมเสีย
+  const handleCalculate = useCallback(() => {
+    const maxLossNum = Number(maxLoss)
+    if (!selectedType || !maxLossNum || maxLossNum <= 0) return
+
+    const rates = DEFAULT_RATES[selectedType.code] || FALLBACK_RATES
+    const calculated = rates.map(r => ({
+      betType: r.betType,
+      rate: r.rate,
+      threshold: Math.floor(maxLossNum / r.rate), // ปัดลง (ป้องกันเกิน)
+    }))
+
+    setPreviewRules(calculated)
+    setShowPreview(true)
+  }, [selectedType, maxLoss])
+
+  // ⭐ ยืนยัน — สร้างกฎอั้นทั้งหมดจาก preview
+  const handleApplyCalculated = useCallback(() => {
+    if (!selectedType || previewRules.length === 0) return
+
+    const newRules: AutoBanRule[] = previewRules.map((pr, i) => ({
+      id: nextId + i,
+      lottery_type_id: selectedType.id,
+      lottery_type_name: selectedType.name,
+      bet_type: pr.betType,
+      threshold_amount: pr.threshold,
+      action: 'full_ban' as const,
+      status: 'active' as const,
+    }))
+
+    setRules(prev => ({
+      ...prev,
+      [selectedType.code]: [...(prev[selectedType.code] || []), ...newRules],
+    }))
+    setNextId(prev => prev + previewRules.length)
+    setShowPreview(false)
+    setCapital('')
+    setMaxLoss('')
+    setPreviewRules([])
+  }, [selectedType, previewRules, nextId])
+
+  // เพิ่มกฎ (manual)
   const handleAdd = useCallback(() => {
     if (!selectedType || !form.threshold_amount) return
     const newRule: AutoBanRule = {
@@ -143,6 +209,82 @@ export default function AutoBanPage() {
           <span className="inline-flex items-center gap-1 ml-4">📉 <span className="text-yellow-400 font-semibold">ลดเรท</span> — ลดอัตราจ่าย</span>
           <span className="inline-flex items-center gap-1 ml-4">📊 <span className="text-blue-400 font-semibold">จำกัดยอด</span> — จำกัดต่อคน</span>
         </div>
+      </div>
+
+      {/* ⭐ คำนวณกฎอั้นอัตโนมัติ */}
+      <div className="card-surface p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg">🧮</span>
+          <h3 className="text-sm font-bold">คำนวณกฎอั้นอัตโนมัติ</h3>
+          <span className="text-xs text-[var(--text-tertiary)]">— กรอกทุน + ยอมเสียสูงสุด ระบบจะคำนวณ threshold ให้</span>
+        </div>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="flex-1 min-w-[140px]">
+            <label className="text-[11px] font-semibold text-[var(--text-tertiary)] mb-1 block">ทุนทั้งหมด (฿)</label>
+            <input
+              type="number"
+              value={capital}
+              onChange={e => setCapital(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--border-color)]"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              placeholder="100,000"
+            />
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="text-[11px] font-semibold text-[var(--text-tertiary)] mb-1 block">ยอมเสียสูงสุดต่อรอบ (฿)</label>
+            <input
+              type="number"
+              value={maxLoss}
+              onChange={e => setMaxLoss(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--border-color)]"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              placeholder="20,000"
+            />
+          </div>
+          <button
+            onClick={handleCalculate}
+            disabled={!selectedType || !maxLoss || Number(maxLoss) <= 0}
+            className="btn btn-primary px-6 py-2 text-sm disabled:opacity-40"
+          >
+            🧮 คำนวณ
+          </button>
+        </div>
+
+        {/* Preview ผลคำนวณ */}
+        {showPreview && previewRules.length > 0 && (
+          <div className="mt-4 border-t border-[var(--border-color)] pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold">
+                ผลคำนวณ — {selectedType?.name}
+                <span className="text-xs text-[var(--text-tertiary)] ml-2">
+                  (ทุน {fmtMoney(Number(capital || 0))} | ยอมเสีย {fmtMoney(Number(maxLoss))})
+                </span>
+              </h4>
+              <div className="flex gap-2">
+                <button onClick={() => setShowPreview(false)} className="btn btn-ghost text-xs">ยกเลิก</button>
+                <button onClick={handleApplyCalculated} className="btn btn-primary text-xs">✅ ใช้กฎเหล่านี้</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {previewRules.map((pr, i) => (
+                <div key={i} className="rounded-lg p-3 flex items-center justify-between"
+                  style={{ background: 'var(--bg-tertiary)' }}>
+                  <div>
+                    <div className="text-xs font-semibold">{pr.betType}</div>
+                    <div className="text-[10px] text-[var(--text-tertiary)]">rate x{pr.rate}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-yellow-400">{fmtMoney(pr.threshold)}</div>
+                    <div className="text-[10px] text-[var(--text-tertiary)]">threshold</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+              💡 สูตร: threshold = ยอมเสีย ÷ rate → ถ้ายอดรวมต่อเลขเกินค่านี้ → อั้นเต็ม
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ⭐ Tab ประเภทหวย */}
