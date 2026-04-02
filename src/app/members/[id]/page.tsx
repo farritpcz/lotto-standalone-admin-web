@@ -50,7 +50,8 @@ interface MemberDetail {
   total_bets?: number
   total_bet_amount?: number
   total_win_amount?: number
-  recent_bets_count?: number
+  total_deposit?: number
+  total_withdraw?: number
 }
 
 /** ธุรกรรม — มาจาก txMgmtApi.list() */
@@ -332,6 +333,8 @@ export default function MemberDetailPage() {
   // ===== คำนวณ Profit/Loss summary =====
   const totalBetAmount = member?.total_bet_amount || 0
   const totalWinAmount = member?.total_win_amount || 0
+  const totalDeposit = member?.total_deposit || 0
+  const totalWithdraw = member?.total_withdraw || 0
   const profitLoss = totalWinAmount - totalBetAmount  // บวก = สมาชิกได้กำไร, ลบ = เว็บได้กำไร
 
   // ===== Pagination helpers =====
@@ -507,9 +510,28 @@ export default function MemberDetailPage() {
             </div>
           </div>
 
+          {/* ----- Deposit/Withdraw Summary: สรุปฝาก/ถอน ----- */}
+          <div className="card-surface" style={{ padding: 20 }}>
+            <p className="label" style={{ marginBottom: 14 }}>สรุปฝาก / ถอน</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+              <div className="stat-card">
+                <span className="label" style={{ display: 'block', marginBottom: 4 }}>ยอดฝากรวม</span>
+                <span className="metric" style={{ fontSize: 20, color: 'var(--status-success)' }}>
+                  {fmtMoney(totalDeposit)}
+                </span>
+              </div>
+              <div className="stat-card">
+                <span className="label" style={{ display: 'block', marginBottom: 4 }}>ยอดถอนรวม</span>
+                <span className="metric" style={{ fontSize: 20, color: 'var(--status-error)' }}>
+                  {fmtMoney(totalWithdraw)}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* ----- Profit/Loss Summary: สรุปกำไร/ขาดทุน ----- */}
           <div className="card-surface" style={{ padding: 20 }}>
-            <p className="label" style={{ marginBottom: 14 }}>สรุปกำไร / ขาดทุน</p>
+            <p className="label" style={{ marginBottom: 14 }}>สรุปกำไร / ขาดทุน (จากการแทง)</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
               {/* ยอดแทงรวม */}
               <div className="stat-card">
