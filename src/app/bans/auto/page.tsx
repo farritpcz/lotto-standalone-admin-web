@@ -168,32 +168,41 @@ export default function AutoBanPage() {
     const calculated: typeof previewRules = []
     for (const r of rates) {
       const fullThreshold = Math.floor(maxLossNum / r.rate)
-      // ระดับ 1: จำกัดยอดต่อคน — ที่ 60% (ป้องกันคนเดียวกินหมด)
+      // ⭐ 5 ระดับขั้นบันได — ค่อยๆ ลดเรท ไม่ลดทีเดียว
+      // ระดับ 1: จำกัดยอดต่อคน — ที่ 50%
       calculated.push({
-        betType: r.betType,
-        rate: r.rate,
-        threshold: Math.floor(fullThreshold * 0.6),
-        action: 'max_amount',
-        reducedRate: 0,
-        label: `จำกัดยอด (60%)`,
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.5),
+        action: 'max_amount', reducedRate: 0,
+        label: 'จำกัดยอด (50%)',
       })
-      // ระดับ 2: ลดเรท — ที่ 80% (ลด rate จ่ายลงครึ่งหนึ่ง)
+      // ระดับ 2: ลดเรท 25% — ที่ 65%
       calculated.push({
-        betType: r.betType,
-        rate: r.rate,
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.65),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.75),
+        label: 'ลดเรท 25% (65%)',
+      })
+      // ระดับ 3: ลดเรท 50% — ที่ 80%
+      calculated.push({
+        betType: r.betType, rate: r.rate,
         threshold: Math.floor(fullThreshold * 0.8),
-        action: 'reduce_rate',
-        reducedRate: Math.floor(r.rate * 0.5),
-        label: `ลดเรท (80%)`,
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.5),
+        label: 'ลดเรท 50% (80%)',
       })
-      // ระดับ 3: อั้นเต็ม — ที่ 100%
+      // ระดับ 4: ลดเรท 75% — ที่ 90%
       calculated.push({
-        betType: r.betType,
-        rate: r.rate,
+        betType: r.betType, rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.9),
+        action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.25),
+        label: 'ลดเรท 75% (90%)',
+      })
+      // ระดับ 5: อั้นเต็ม — ที่ 100%
+      calculated.push({
+        betType: r.betType, rate: r.rate,
         threshold: fullThreshold,
-        action: 'full_ban',
-        reducedRate: 0,
-        label: `อั้นเต็ม (100%)`,
+        action: 'full_ban', reducedRate: 0,
+        label: 'อั้นเต็ม (100%)',
       })
     }
 
@@ -375,7 +384,7 @@ export default function AutoBanPage() {
               ))
             })()}
             <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-              💡 3 ระดับ: จำกัดยอด (60%) → ลดเรท (80%) → อั้นเต็ม (100%) ของ threshold สูงสุด
+              💡 5 ระดับขั้นบันได: จำกัดยอด (50%) → ลดเรท 25% (65%) → ลดเรท 50% (80%) → ลดเรท 75% (90%) → อั้นเต็ม (100%)
             </div>
           </div>
         )}
@@ -441,8 +450,8 @@ export default function AutoBanPage() {
                         </div>
                       </div>
 
-                      {/* 3 ระดับในแถวเดียว */}
-                      <div className="grid grid-cols-3 gap-2">
+                      {/* ระดับขั้นบันไดในแถวเดียว */}
+                      <div className="grid grid-cols-5 gap-2">
                         {sorted.map(r => {
                           const ac = actionConfig[r.action] || actionConfig.full_ban
                           return (
@@ -494,12 +503,17 @@ export default function AutoBanPage() {
         const th = Math.floor(exRule.threshold_amount)
         const betTypeName = exRule.bet_type === '3TOP' ? '3ตัวบน' : exRule.bet_type
         const rate = exRule.rate || 900
-        // คำนวณตัวอย่าง: แบ่งเป็น 3 คน ให้คน C เกิน threshold
-        const betA = Math.floor(th * 0.4) || 1
-        const betB = Math.floor(th * 0.4) || 1
-        const betC = Math.floor(th * 0.3) || 1
-        const sumAB = betA + betB
-        const sumABC = sumAB + betC
+
+        // หา 3 ระดับของ bet type นี้
+        const rulesForType = currentRules.filter(r => r.bet_type === exRule.bet_type)
+        // หาระดับต่างๆ เรียงตาม threshold
+        const sortedRules = [...rulesForType].sort((a, b) => a.threshold_amount - b.threshold_amount)
+        const maxAmountRule = sortedRules.find(r => r.action === 'max_amount')
+        const reduceRateRules = sortedRules.filter(r => r.action === 'reduce_rate')
+        const fullBanRule = sortedRules.find(r => r.action === 'full_ban')
+
+        const thMax = maxAmountRule?.threshold_amount || Math.floor(th * 0.5)
+        const thBan = fullBanRule?.threshold_amount || th
 
         return (
           <div className="card-surface p-4 mt-4">
@@ -508,38 +522,62 @@ export default function AutoBanPage() {
               <h3 className="text-sm font-bold">กฎเหล่านี้ทำงานยังไง?</h3>
             </div>
             <div className="text-xs text-[var(--text-secondary)] leading-relaxed space-y-3">
+              {/* ตัวอย่าง bet type */}
               <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-                <div className="font-bold text-[var(--text-primary)] mb-1">📌 สถานการณ์ตัวอย่าง</div>
-                คุณตั้ง <span className="text-yellow-400 font-bold">{betTypeName}</span> threshold{' '}
-                <span className="text-yellow-400 font-bold">{fmtMoney(th)}</span>
+                <div className="font-bold text-[var(--text-primary)] mb-1">📌 สถานการณ์ตัวอย่าง — {betTypeName} (rate x{rate})</div>
+                สมมติลูกค้าหลายคนแทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> ในรอบเดียวกัน ระบบจะเช็คยอดรวมของเลขนั้น
               </div>
 
-              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-                <div className="font-bold text-[var(--text-primary)] mb-1">📋 เมื่อมีคนแทง</div>
-                <div className="space-y-1.5 mt-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-400">✅</span>
-                    <span>ลูกค้า A แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betA)} → ยอมรับ (ยอดรวม {fmtMoney(betA)})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-400">✅</span>
-                    <span>ลูกค้า B แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betB)} → ยอมรับ (ยอดรวม {fmtMoney(sumAB)})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-red-400">🚫</span>
-                    <span>ลูกค้า C แทง {betTypeName} เลข <span className="font-mono text-yellow-400">847</span> = {fmtMoney(betC)} → <span className="text-red-400 font-bold">อั้น!</span> (ยอดรวม {fmtMoney(sumABC)} เกิน threshold {fmtMoney(th)})</span>
-                  </div>
+              {/* ระดับ 1: จำกัดยอด */}
+              <div className="rounded-lg p-3" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                <div className="font-bold mb-1" style={{ color: '#3b82f6' }}>📊 ระดับ 1 — จำกัดยอด (threshold {fmtMoney(thMax)})</div>
+                <div className="mt-1">
+                  เมื่อยอดรวมต่อเลขถึง <span className="font-bold text-yellow-400">{fmtMoney(thMax)}</span>
+                  → <span className="font-bold" style={{ color: '#3b82f6' }}>จำกัดยอดแทงต่อคน</span> ป้องกันไม่ให้คนเดียวแทงเยอะเกินไป
                 </div>
               </div>
 
-              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
-                <div className="font-bold text-[var(--text-primary)] mb-1">🛡️ ผลลัพธ์</div>
-                ถ้าเลข 847 ถูกจริง คุณจ่ายสูงสุดแค่ {fmtMoney(th)} × {rate} = <span className="text-yellow-400 font-bold">{fmtMoney(th * rate)}</span><br />
-                → <span className="text-green-400 font-bold">ไม่ขาดทุนเกินที่ตั้งไว้</span> ← ระบบปกป้องให้อัตโนมัติ
+              {/* ระดับ 2-4: ลดเรทแบบขั้นบันได */}
+              <div className="rounded-lg p-3" style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)' }}>
+                <div className="font-bold mb-1" style={{ color: '#f5a623' }}>📉 ระดับ 2-4 — ลดเรทแบบขั้นบันได</div>
+                <div className="mt-1 mb-2">ยังรับแทงอยู่ แต่ค่อยๆ ลดอัตราจ่าย → ลดความเสี่ยงทีละขั้น</div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {reduceRateRules.map((rr, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-md px-3 py-1.5" style={{ background: 'rgba(245,166,35,0.08)' }}>
+                      <span style={{ color: '#f5a623' }}>→</span>
+                      <span>ยอดรวมถึง <span className="font-bold text-yellow-400">{fmtMoney(rr.threshold_amount)}</span></span>
+                      <span className="flex-1" />
+                      <span className="font-bold" style={{ color: '#f5a623' }}>ลดเรทเหลือ x{rr.reduced_rate}</span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">(จากเดิม x{rate})</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="text-[10px] text-[var(--text-tertiary)]">
-                💡 สูตร: threshold = ยอมเสียสูงสุด ÷ rate → ระบบตรวจยอดรวมต่อเลขในแต่ละรอบ ถ้าเกิน threshold → อั้นเลขนั้นอัตโนมัติ
+              {/* ระดับ 5: อั้นเต็ม */}
+              <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <div className="font-bold mb-1" style={{ color: '#ef4444' }}>🚫 ระดับ 5 — อั้นเต็ม (threshold {fmtMoney(thBan)})</div>
+                <div className="mt-1">
+                  เมื่อยอดรวมต่อเลขถึง <span className="font-bold text-yellow-400">{fmtMoney(thBan)}</span>
+                  → <span className="font-bold" style={{ color: '#ef4444' }}>ปิดรับเลขนั้นเลย</span> ใครแทงมาจะถูก reject ทันที
+                  <div className="text-[10px] text-[var(--text-tertiary)] mt-1">จ่ายสูงสุด {fmtMoney(thBan)} × {rate} = <span className="font-bold text-yellow-400">{fmtMoney(thBan * rate)}</span></div>
+                </div>
+              </div>
+
+              {/* สรุปขั้นบันได */}
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-tertiary)' }}>
+                <div className="font-bold text-[var(--text-primary)] mb-2">🛡️ สรุป — ขั้นบันไดปกป้อง</div>
+                <div className="space-y-1">
+                  <div>ยอดรวม &lt; {fmtMoney(thMax)} → <span className="text-green-400 font-bold">ปกติ</span> (รับแทงเต็ม rate x{rate})</div>
+                  <div>ยอดรวม &gt; {fmtMoney(thMax)} → <span className="font-bold" style={{ color: '#3b82f6' }}>จำกัดยอดต่อคน</span></div>
+                  {reduceRateRules.map((rr, i) => (
+                    <div key={i}>ยอดรวม &gt; {fmtMoney(rr.threshold_amount)} → <span className="font-bold" style={{ color: '#f5a623' }}>ลดเรท x{rate} → x{rr.reduced_rate}</span></div>
+                  ))}
+                  <div>ยอดรวม &gt; {fmtMoney(thBan)} → <span className="font-bold" style={{ color: '#ef4444' }}>ปิดรับ!</span></div>
+                </div>
+                <div className="mt-2 text-[10px] text-[var(--text-tertiary)]">
+                  💡 ระบบตรวจอัตโนมัติทุกครั้งที่มีคนแทง ค่อยๆ ลดเรทลง → ไม่ขาดทุนเกินที่ตั้งไว้
+                </div>
               </div>
             </div>
           </div>
