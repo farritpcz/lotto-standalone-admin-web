@@ -13,6 +13,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import AdminSidebar from './AdminSidebar'
 import { ToastProvider } from './Toast'
+import CommandPalette from './CommandPalette'
+import Breadcrumbs from './Breadcrumbs'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -54,8 +56,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           pendingWithdrawals={pendingWithdrawals}
         />
         <div className="admin-main-content" style={{ flex: 1, minHeight: '100vh', overflowY: 'auto' }}>
+          <div style={{ padding: '16px 24px 0' }}>
+            <Breadcrumbs />
+          </div>
           {children}
         </div>
+        <CommandPalette />
       </div>
     </ToastProvider>
   )
