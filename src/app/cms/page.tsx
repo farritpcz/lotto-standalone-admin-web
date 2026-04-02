@@ -429,66 +429,107 @@ export default function CMSPage() {
           {/* ══════════════════════════════════════════════════════════════
              TAB: รูปประเภทหวย (Lottery Type Images)
              ══════════════════════════════════════════════════════════════ */}
-          {activeTab === 'lottery-images' && (
+          {activeTab === 'lottery-images' && (() => {
+            // ดึงจาก lotteries API จริง (ไม่ใช่ CMS mock)
+            const [ltTypes, setLtTypes] = useState<{id:number;name:string;code:string;image_url:string}[]>([])
+            const [editingLtId, setEditingLtId] = useState<number|null>(null)
+            const [editUrl, setEditUrl] = useState('')
+
+            // eslint-disable-next-line react-hooks/rules-of-hooks
+            useEffect(() => {
+              api.get('/lotteries').then(res => setLtTypes(res.data.data || [])).catch(() => {})
+            }, [])
+
+            const saveImage = async (ltId: number) => {
+              try {
+                await api.put(`/lotteries/${ltId}/image`, { image_url: editUrl })
+                setLtTypes(prev => prev.map(l => l.id === ltId ? { ...l, image_url: editUrl } : l))
+                setEditingLtId(null)
+                setMessage({ type: 'success', text: 'บันทึกรูปสำเร็จ' })
+              } catch { setMessage({ type: 'error', text: 'บันทึกไม่สำเร็จ' }) }
+            }
+
+            const gradients: Record<string,string> = {
+              THAI: 'linear-gradient(135deg, #f5a623, #d4820a)',
+              LAO: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              STOCK_TH: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              STOCK_FOREIGN: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+              YEEKEE: 'linear-gradient(135deg, #0d6e6e, #34d399)',
+            }
+
+            return (
             <div className="card-surface" style={{ padding: 20 }}>
-              <div className="label" style={{ marginBottom: 16 }}>
-                รูปประเภทหวย ({lotteryImages.length} ประเภท)
+              <div className="label" style={{ marginBottom: 8 }}>
+                รูปประเภทหวย ({ltTypes.length} ประเภท)
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                รูปภาพที่แสดงในหน้าเลือกประเภทหวยของสมาชิก
+                ใส่ URL รูปภาพ หรือ อัพโหลดไปที่ CDN แล้ววาง URL · แสดงในหน้าแทงหวยของสมาชิก
               </div>
 
-              {/* Grid layout สำหรับ lottery images */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                gap: 16,
-              }}>
-                {lotteryImages.map(item => (
-                  <div key={item.id} style={{
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                {ltTypes.map(lt => (
+                  <div key={lt.id} style={{
                     background: 'var(--bg-base)', border: '1px solid var(--border)',
-                    borderRadius: 8, padding: 16,
-                    transition: 'border-color 0.15s',
+                    borderRadius: 12, overflow: 'hidden',
                   }}>
-                    {/* Image placeholder */}
+                    {/* Preview */}
                     <div style={{
-                      width: '100%', height: 100, borderRadius: 6,
-                      background: 'var(--bg-elevated)', border: '1px dashed var(--border)',
-                      display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center',
-                      gap: 8, marginBottom: 12, cursor: 'pointer',
+                      width: '100%', height: 90,
+                      background: lt.image_url ? `url(${lt.image_url}) center/cover` : (gradients[lt.code] || 'var(--bg-elevated)'),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative',
                     }}>
-                      <Image size={24} strokeWidth={1.5} color="var(--text-tertiary)" />
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                        คลิกเพื่ออัพโหลด
+                      {!lt.image_url && (
+                        <span style={{ fontSize: 36, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
+                          {lt.code === 'THAI' ? '🇹🇭' : lt.code === 'LAO' ? '🇱🇦' : lt.code === 'YEEKEE' ? '🎯' : '📈'}
+                        </span>
+                      )}
+                      <span style={{
+                        position: 'absolute', top: 6, right: 6,
+                        fontSize: 9, padding: '2px 6px', borderRadius: 4,
+                        background: lt.image_url ? 'rgba(0,229,160,0.9)' : 'rgba(255,255,255,0.2)',
+                        color: lt.image_url ? '#000' : '#fff', fontWeight: 600,
+                      }}>
+                        {lt.image_url ? 'มีรูป' : 'ไม่มีรูป'}
                       </span>
                     </div>
 
-                    {/* ข้อมูลประเภทหวย */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-                          {item.lottery_type_name}
+                    {/* Info + edit */}
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{lt.name}</div>
+                          <div className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{lt.code}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                          {item.lottery_type_code}
-                        </div>
+                        <button className="btn btn-ghost" onClick={() => { setEditingLtId(lt.id); setEditUrl(lt.image_url || '') }}
+                          style={{ height: 24, padding: '0 6px', fontSize: 10 }}>
+                          {lt.image_url ? 'เปลี่ยน' : 'ใส่รูป'}
+                        </button>
                       </div>
-                      <button className="btn btn-ghost" style={{ height: 26, padding: '0 8px', fontSize: 11 }}>
-                        เปลี่ยน
-                      </button>
-                    </div>
 
-                    {/* แสดง current image path */}
-                    <div style={{
-                      marginTop: 8, fontSize: 10, color: 'var(--text-tertiary)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {item.image_url}
+                      {/* Edit URL inline */}
+                      {editingLtId === lt.id && (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                          <input type="text" className="input" value={editUrl}
+                            onChange={e => setEditUrl(e.target.value)}
+                            placeholder="วาง URL รูปภาพ..."
+                            style={{ flex: 1, height: 28, fontSize: 11, fontFamily: 'var(--font-mono)' }} />
+                          <button className="btn btn-primary" onClick={() => saveImage(lt.id)}
+                            style={{ height: 28, padding: '0 10px', fontSize: 11 }}>
+                            บันทึก
+                          </button>
+                          <button className="btn btn-ghost" onClick={() => setEditingLtId(null)}
+                            style={{ height: 28, padding: '0 6px', fontSize: 11 }}>
+                            ยกเลิก
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </div>)
+          })()}
           )}
         </>
       )}
