@@ -125,7 +125,7 @@ export default function AutoBanPage() {
     setMaxLoss(savedCapital.maxLoss)
   }, [])
   const [showPreview, setShowPreview] = useState(false)
-  const [previewRules, setPreviewRules] = useState<{ betType: string; rate: number; threshold: number }[]>([])
+  const [previewRules, setPreviewRules] = useState<{ betType: string; rate: number; threshold: number; action: string; reducedRate: number; label: string }[]>([])
 
   const [form, setForm] = useState({
     bet_type: '3 ตัวบน',
@@ -164,11 +164,38 @@ export default function AutoBanPage() {
     if (!selectedType || !maxLossNum || maxLossNum <= 0) return
 
     const rates = DEFAULT_RATES[selectedType.code] || FALLBACK_RATES
-    const calculated = rates.map(r => ({
-      betType: r.betType,
-      rate: r.rate,
-      threshold: Math.floor(maxLossNum / r.rate), // ปัดลง (ป้องกันเกิน)
-    }))
+    // ⭐ สร้าง 3 ระดับต่อ bet type: จำกัดยอด → ลดเรท → อั้นเต็ม
+    const calculated: typeof previewRules = []
+    for (const r of rates) {
+      const fullThreshold = Math.floor(maxLossNum / r.rate)
+      // ระดับ 1: จำกัดยอดต่อคน — ที่ 60% (ป้องกันคนเดียวกินหมด)
+      calculated.push({
+        betType: r.betType,
+        rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.6),
+        action: 'max_amount',
+        reducedRate: 0,
+        label: `จำกัดยอด (60%)`,
+      })
+      // ระดับ 2: ลดเรท — ที่ 80% (ลด rate จ่ายลงครึ่งหนึ่ง)
+      calculated.push({
+        betType: r.betType,
+        rate: r.rate,
+        threshold: Math.floor(fullThreshold * 0.8),
+        action: 'reduce_rate',
+        reducedRate: Math.floor(r.rate * 0.5),
+        label: `ลดเรท (80%)`,
+      })
+      // ระดับ 3: อั้นเต็ม — ที่ 100%
+      calculated.push({
+        betType: r.betType,
+        rate: r.rate,
+        threshold: fullThreshold,
+        action: 'full_ban',
+        reducedRate: 0,
+        label: `อั้นเต็ม (100%)`,
+      })
+    }
 
     setPreviewRules(calculated)
     setShowPreview(true)
@@ -186,8 +213,9 @@ export default function AutoBanPage() {
         rules: previewRules.map(pr => ({
           bet_type: pr.betType,
           threshold_amount: pr.threshold,
-          action: 'full_ban',
+          action: pr.action,
           rate: pr.rate,
+          reduced_rate: pr.reducedRate,
         })),
       })
       setShowPreview(false)
@@ -314,23 +342,40 @@ export default function AutoBanPage() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {previewRules.map((pr, i) => (
-                <div key={i} className="rounded-lg p-3 flex items-center justify-between"
-                  style={{ background: 'var(--bg-tertiary)' }}>
-                  <div>
-                    <div className="text-xs font-semibold">{pr.betType}</div>
-                    <div className="text-[10px] text-[var(--text-tertiary)]">rate x{pr.rate}</div>
+            {/* จัดกลุ่มตาม bet type */}
+            {(() => {
+              const grouped: Record<string, typeof previewRules> = {}
+              previewRules.forEach(pr => {
+                if (!grouped[pr.betType]) grouped[pr.betType] = []
+                grouped[pr.betType].push(pr)
+              })
+              return Object.entries(grouped).map(([betType, levels]) => (
+                <div key={betType} className="rounded-lg p-3 mb-2" style={{ background: 'var(--bg-tertiary)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold">{betType}</span>
+                    <span className="text-[10px] text-[var(--text-tertiary)]">rate x{levels[0]?.rate}</span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-yellow-400">{fmtMoney(pr.threshold)}</div>
-                    <div className="text-[10px] text-[var(--text-tertiary)]">threshold</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {levels.map((lv, i) => {
+                      const ac = actionConfig[lv.action] || actionConfig.full_ban
+                      return (
+                        <div key={i} className="rounded-md p-2 text-center" style={{ background: 'var(--bg-secondary)' }}>
+                          <div className="text-[10px] mb-1">
+                            <span className={`badge ${ac.cls}`} style={{ fontSize: '9px', padding: '1px 6px' }}>{ac.icon} {ac.label}</span>
+                          </div>
+                          <div className="text-sm font-bold text-yellow-400">{fmtMoney(lv.threshold)}</div>
+                          {lv.action === 'reduce_rate' && lv.reducedRate > 0 && (
+                            <div className="text-[9px] text-[var(--text-tertiary)]">เรท x{lv.reducedRate}</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+              ))
+            })()}
             <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-              💡 สูตร: threshold = ยอมเสีย ÷ rate → ถ้ายอดรวมต่อเลขเกินค่านี้ → อั้นเต็ม
+              💡 3 ระดับ: จำกัดยอด (60%) → ลดเรท (80%) → อั้นเต็ม (100%) ของ threshold สูงสุด
             </div>
           </div>
         )}

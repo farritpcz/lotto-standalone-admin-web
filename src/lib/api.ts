@@ -273,7 +273,7 @@ export const autoBanApi = {
     lottery_type_id: number
     capital: number
     max_loss: number
-    rules: { bet_type: string; threshold_amount: number; action: string; rate: number }[]
+    rules: { bet_type: string; threshold_amount: number; action: string; rate: number; reduced_rate?: number }[]
   }) => api.post('/auto-ban-rules/bulk', data),
 
   /** แก้ไขกฎ */
