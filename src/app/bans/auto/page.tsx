@@ -261,6 +261,16 @@ export default function AutoBanPage() {
     } catch { /* ignore */ }
   }, [loadRules])
 
+  // เคลียร์กฎทั้งหมดของประเภทหวยที่เลือก
+  const handleClearAll = useCallback(async () => {
+    if (!selectedType || currentRules.length === 0) return
+    if (!confirm(`ลบกฎอั้นทั้งหมดของ ${selectedType.name} (${currentRules.length} กฎ)?`)) return
+    try {
+      await Promise.all(currentRules.map(r => autoBanApi.delete(r.id)))
+      await loadRules()
+    } catch { /* ignore */ }
+  }, [selectedType, currentRules, loadRules])
+
   // แก้ไขกฎ — ผ่าน API
   const handleEdit = useCallback(async () => {
     if (!editingRule) return
@@ -412,7 +422,17 @@ export default function AutoBanPage() {
         <div className="card-surface">
           <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
             <h2 className="text-base font-semibold">กฎอั้นอัตโนมัติ — {selectedType.name}</h2>
-            <span className="text-sm text-[var(--text-tertiary)]">{currentRules.length} กฎ</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-[var(--text-tertiary)]">{currentRules.length} กฎ</span>
+              {currentRules.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="px-3 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
+                >
+                  🗑️ เคลียร์ทั้งหมด
+                </button>
+              )}
+            </div>
           </div>
 
           {currentRules.length === 0 ? (
