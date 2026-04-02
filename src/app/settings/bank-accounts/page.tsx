@@ -45,9 +45,11 @@ interface BankAccount {
   account_name: string
   is_default: boolean
   status: string
+  account_type?: string    // deposit | withdraw
+  transfer_mode?: string   // manual | auto
   rkauto_uuid?: string
-  rkauto_status?: string   // '' | 'registered' | 'active' | 'deactivated'
-  bank_system?: string     // SMS | BANK | KBIZ
+  rkauto_status?: string
+  bank_system?: string
 }
 
 /** ฟอร์มเพิ่ม/แก้ไขบัญชี */
@@ -56,8 +58,11 @@ interface BankAccountForm {
   account_number: string
   account_name: string
   is_default: boolean
-  rkauto_token1: string  // Token จากการเจน RKAUTO (ส่งตอน register ไม่เก็บ DB)
-  rkauto_token2: string  // Token ตัวที่ 2 จากการเจน RKAUTO
+  account_type: 'deposit' | 'withdraw'   // บัญชีฝาก หรือ บัญชีถอน
+  transfer_mode: 'manual' | 'auto'       // มือ หรือ ออโต้ (RKAUTO)
+  bank_system: string                     // SMS / BANK / KBIZ (ใช้กับ auto)
+  rkauto_token1: string
+  rkauto_token2: string
 }
 
 /** ตั้งค่าฝาก/ถอน */
@@ -100,7 +105,7 @@ export default function BankAccountsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null) // null = เพิ่มใหม่
   const [form, setForm] = useState<BankAccountForm>({
-    bank_code: 'SCB', account_number: '', account_name: '', is_default: false, rkauto_token1: '', rkauto_token2: '',
+    bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit' as const, transfer_mode: 'manual' as const, bank_system: 'KBIZ', rkauto_token1: '', rkauto_token2: '',
   })
   const [formSaving, setFormSaving] = useState(false)
 
@@ -361,9 +366,9 @@ export default function BankAccountsPage() {
                 <th>ธนาคาร</th>
                 <th>เลขบัญชี</th>
                 <th>ชื่อบัญชี</th>
+                <th>ประเภท</th>
+                <th>โหมด</th>
                 <th>สถานะ</th>
-                <th>บัญชีหลัก</th>
-                <th>RKAUTO</th>
                 <th style={{ textAlign: 'right' }}>จัดการ</th>
               </tr>
             </thead>
@@ -387,28 +392,34 @@ export default function BankAccountsPage() {
                   <td className="mono">{acc.account_number}</td>
                   {/* ชื่อบัญชี */}
                   <td>{acc.account_name}</td>
+                  {/* ประเภท: ฝาก/ถอน */}
+                  <td>
+                    <span className={`badge ${acc.account_type === 'withdraw' ? 'badge-error' : 'badge-success'}`} style={{ fontSize: 10 }}>
+                      {acc.account_type === 'withdraw' ? 'ถอน' : 'ฝาก'}
+                    </span>
+                    {acc.is_default && <span className="badge badge-info" style={{ fontSize: 10, marginLeft: 4 }}>หลัก</span>}
+                  </td>
+                  {/* โหมด: มือ/ออโต้ */}
+                  <td>
+                    {acc.transfer_mode === 'auto' ? (
+                      <div>
+                        <span className="badge badge-warning" style={{ fontSize: 10 }}>ออโต้</span>
+                        {acc.rkauto_status && (
+                          <span className={`badge ${acc.rkauto_status === 'active' ? 'badge-success' : 'badge-neutral'}`}
+                            style={{ fontSize: 9, marginLeft: 4 }}>
+                            {acc.rkauto_status}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>มือ</span>
+                    )}
+                  </td>
                   {/* สถานะ */}
                   <td>
-                    <span className={`badge ${acc.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
-                      {acc.status === 'active' ? 'ใช้งาน' : 'ปิดใช้'}
+                    <span className={`badge ${acc.status === 'active' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 10 }}>
+                      {acc.status === 'active' ? 'ใช้งาน' : 'ปิด'}
                     </span>
-                  </td>
-                  {/* บัญชีหลัก */}
-                  <td>
-                    {acc.is_default && (
-                      <span className="badge badge-info">หลัก</span>
-                    )}
-                  </td>
-                  {/* RKAUTO Status */}
-                  <td>
-                    {acc.rkauto_uuid ? (
-                      <span className={`badge ${acc.rkauto_status === 'active' ? 'badge-success' : acc.rkauto_status === 'registered' ? 'badge-warning' : 'badge-neutral'}`}
-                        style={{ fontSize: 10 }}>
-                        RKAUTO: {acc.rkauto_status || 'registered'}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>ยังไม่เชื่อม</span>
-                    )}
                   </td>
                   {/* จัดการ: แก้ไข / RKAUTO / ลบ */}
                   <td style={{ textAlign: 'right' }}>
@@ -582,6 +593,54 @@ export default function BankAccountsPage() {
                 />
               </div>
 
+              {/* ── ประเภทบัญชี: ฝาก / ถอน ── */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>ประเภทบัญชี</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'deposit', label: 'บัญชีฝาก', desc: 'รับเงินจากสมาชิก' },
+                    { value: 'withdraw', label: 'บัญชีถอน', desc: 'โอนเงินให้สมาชิก' },
+                  ].map(opt => (
+                    <label key={opt.value} style={{
+                      flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                      border: `2px solid ${form.account_type === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                      background: form.account_type === opt.value ? 'rgba(0,229,160,0.06)' : 'transparent',
+                      transition: 'all 0.15s',
+                    }}>
+                      <input type="radio" name="account_type" value={opt.value} checked={form.account_type === opt.value}
+                        onChange={() => setForm(f => ({ ...f, account_type: opt.value as 'deposit' | 'withdraw' }))}
+                        style={{ display: 'none' }} />
+                      <div style={{ fontSize: 13, fontWeight: 600, color: form.account_type === opt.value ? 'var(--accent)' : 'var(--text-primary)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{opt.desc}</div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── โหมด: มือ / ออโต้ ── */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>โหมดการทำงาน</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'manual', label: 'มือ (Manual)', desc: 'แอดมินตรวจสอบเอง' },
+                    { value: 'auto', label: 'ออโต้ (RKAUTO)', desc: 'ระบบตรวจจับอัตโนมัติ' },
+                  ].map(opt => (
+                    <label key={opt.value} style={{
+                      flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                      border: `2px solid ${form.transfer_mode === opt.value ? (opt.value === 'auto' ? '#f5a623' : 'var(--accent)') : 'var(--border)'}`,
+                      background: form.transfer_mode === opt.value ? (opt.value === 'auto' ? 'rgba(245,166,35,0.06)' : 'rgba(0,229,160,0.06)') : 'transparent',
+                      transition: 'all 0.15s',
+                    }}>
+                      <input type="radio" name="transfer_mode" value={opt.value} checked={form.transfer_mode === opt.value}
+                        onChange={() => setForm(f => ({ ...f, transfer_mode: opt.value as 'manual' | 'auto' }))}
+                        style={{ display: 'none' }} />
+                      <div style={{ fontSize: 13, fontWeight: 600, color: form.transfer_mode === opt.value ? (opt.value === 'auto' ? '#f5a623' : 'var(--accent)') : 'var(--text-primary)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{opt.desc}</div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* บัญชีหลัก checkbox */}
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -595,40 +654,51 @@ export default function BankAccountsPage() {
                 ตั้งเป็นบัญชีหลัก (แสดงในหน้าฝากเงิน)
               </label>
 
-              {/* ── RKAUTO Tokens (จากการเจน — ส่งตอน register ไม่เก็บ DB) ── */}
-              <div style={{ marginTop: 16, padding: 14, background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  RKAUTO Tokens
-                  <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)' }}>(ได้จากการเจนกับ RKAUTO)</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <div className="label" style={{ marginBottom: 4 }}>Token 1</div>
-                    <input
-                      type="text" className="input"
-                      placeholder="วาง token ตัวที่ 1 ที่ได้จาก RKAUTO"
+              {/* ── RKAUTO Section — แสดงเฉพาะ mode=auto ── */}
+              {form.transfer_mode === 'auto' && (
+                <div style={{ padding: 14, background: 'rgba(245,166,35,0.04)', borderRadius: 8, border: '1px solid rgba(245,166,35,0.2)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#f5a623', marginBottom: 12 }}>
+                    RKAUTO — ตั้งค่าออโต้
+                  </div>
+
+                  {/* Bank System */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="label" style={{ marginBottom: 4 }}>ระบบธนาคาร</div>
+                    <select className="input" value={form.bank_system}
+                      onChange={e => setForm(f => ({ ...f, bank_system: e.target.value }))}>
+                      <option value="KBIZ">KBIZ — กสิกร K-BIZ</option>
+                      <option value="SMS">SMS — SCB/KBANK ผ่าน SMS OTP</option>
+                      <option value="BANK">BANK — GSB/TMW login ตรง</option>
+                    </select>
+                  </div>
+
+                  {/* Token 1 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="label" style={{ marginBottom: 4 }}>Token 1 (จากการเจน RKAUTO)</div>
+                    <input type="text" className="input"
+                      placeholder="วาง token ตัวที่ 1..."
                       value={form.rkauto_token1}
                       onChange={e => setForm(f => ({ ...f, rkauto_token1: e.target.value }))}
                       maxLength={150}
-                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
-                    />
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} />
                   </div>
-                  <div>
-                    <div className="label" style={{ marginBottom: 4 }}>Token 2</div>
-                    <input
-                      type="text" className="input"
-                      placeholder="วาง token ตัวที่ 2 ที่ได้จาก RKAUTO"
+
+                  {/* Token 2 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="label" style={{ marginBottom: 4 }}>Token 2 (จากการเจน RKAUTO)</div>
+                    <input type="text" className="input"
+                      placeholder="วาง token ตัวที่ 2..."
                       value={form.rkauto_token2}
                       onChange={e => setForm(f => ({ ...f, rkauto_token2: e.target.value }))}
                       maxLength={150}
-                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
-                    />
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} />
                   </div>
+
                   <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
                     * Tokens ไม่ถูกเก็บในระบบ — ส่งไป RKAUTO ตอน register เท่านั้น
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ── Modal buttons ─────────────────────────────────────────── */}
