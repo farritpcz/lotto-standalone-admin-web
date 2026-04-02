@@ -447,29 +447,13 @@ export default function BankAccountsPage() {
                       }} />
                     </button>
                   </td>
-                  {/* จัดการ: แก้ไข / RKAUTO / ลบ */}
+                  {/* จัดการ: แก้ไข / ลบ */}
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                       <button className="btn btn-ghost" onClick={() => openEditModal(acc)}
                         style={{ height: 26, padding: '0 6px', fontSize: 11 }}>
                         แก้ไข
                       </button>
-                      {!acc.rkauto_uuid ? (
-                        <button className="btn btn-primary" onClick={() => handleRegisterRKAuto(acc)}
-                          style={{ height: 26, padding: '0 8px', fontSize: 11 }}>
-                          เชื่อม RKAUTO
-                        </button>
-                      ) : acc.rkauto_status === 'registered' || acc.rkauto_status === 'deactivated' ? (
-                        <button className="btn btn-success" onClick={() => handleActivateRKAuto(acc)}
-                          style={{ height: 26, padding: '0 8px', fontSize: 11 }}>
-                          เปิดใช้
-                        </button>
-                      ) : acc.rkauto_status === 'active' ? (
-                        <button className="btn btn-ghost" onClick={() => handleDeactivateRKAuto(acc)}
-                          style={{ height: 26, padding: '0 6px', fontSize: 11, color: 'var(--status-warning)' }}>
-                          ปิด RKAUTO
-                        </button>
-                      ) : null}
                       <button className="btn btn-danger" onClick={() => handleDelete(acc)}
                         style={{ height: 26, padding: '0 6px', fontSize: 11 }}>
                         ลบ
