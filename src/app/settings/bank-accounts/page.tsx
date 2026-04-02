@@ -56,6 +56,8 @@ interface BankAccountForm {
   account_number: string
   account_name: string
   is_default: boolean
+  rkauto_token1: string  // Token จากการเจน RKAUTO (ส่งตอน register ไม่เก็บ DB)
+  rkauto_token2: string  // Token ตัวที่ 2 จากการเจน RKAUTO
 }
 
 /** ตั้งค่าฝาก/ถอน */
@@ -98,7 +100,7 @@ export default function BankAccountsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null) // null = เพิ่มใหม่
   const [form, setForm] = useState<BankAccountForm>({
-    bank_code: 'SCB', account_number: '', account_name: '', is_default: false,
+    bank_code: 'SCB', account_number: '', account_name: '', is_default: false, rkauto_token1: '', rkauto_token2: '',
   })
   const [formSaving, setFormSaving] = useState(false)
 
@@ -150,7 +152,7 @@ export default function BankAccountsPage() {
    */
   const openAddModal = () => {
     setEditingId(null)
-    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false })
+    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false, rkauto_token1: '', rkauto_token2: '' })
     setShowModal(true)
   }
 
@@ -253,27 +255,19 @@ export default function BankAccountsPage() {
 
   // ─── RKAUTO Handlers ─────────────────────────────────────────
   const handleRegisterRKAuto = async (acc: BankAccount) => {
+    // ใช้ token จาก form ที่กรอกตอนเพิ่มบัญชี
     const bankSystem = prompt('เลือกระบบ (SMS / BANK / KBIZ):')?.toUpperCase()
     if (!bankSystem || !['SMS', 'BANK', 'KBIZ'].includes(bankSystem)) {
       setMessage({ type: 'error', text: 'กรุณาเลือก SMS, BANK หรือ KBIZ' }); return
     }
-    const username = prompt('Bank Username (login ธนาคาร):')
-    const password = prompt('Bank Password:')
-    if (!username || !password) { setMessage({ type: 'error', text: 'กรุณากรอก username/password' }); return }
-
-    let mobileNumber = ''
-    let bankCode = ''
-    if (bankSystem === 'SMS') {
-      mobileNumber = prompt('เบอร์โทร (สำหรับ SMS):') || ''
-    } else if (bankSystem === 'BANK') {
-      bankCode = prompt('Bank Code (GSB/TMW):')?.toUpperCase() || acc.bank_code
-    }
 
     try {
       await api.post(`/bank-accounts/${acc.id}/register-rkauto`, {
-        bank_system: bankSystem, username, password,
-        mobile_number: mobileNumber, bank_code: bankCode,
+        bank_system: bankSystem,
+        username: 'token-based', // RKAUTO tokens ส่งแทน username/password
+        password: 'token-based',
         is_deposit: true, is_withdraw: true,
+        bank_code: acc.bank_code,
       })
       setMessage({ type: 'success', text: `เชื่อม RKAUTO สำเร็จ (${bankSystem})` })
       loadAccounts()
@@ -600,6 +594,41 @@ export default function BankAccountsPage() {
                 />
                 ตั้งเป็นบัญชีหลัก (แสดงในหน้าฝากเงิน)
               </label>
+
+              {/* ── RKAUTO Tokens (จากการเจน — ส่งตอน register ไม่เก็บ DB) ── */}
+              <div style={{ marginTop: 16, padding: 14, background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  RKAUTO Tokens
+                  <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)' }}>(ได้จากการเจนกับ RKAUTO)</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <div className="label" style={{ marginBottom: 4 }}>Token 1</div>
+                    <input
+                      type="text" className="input"
+                      placeholder="วาง token ตัวที่ 1 ที่ได้จาก RKAUTO"
+                      value={form.rkauto_token1}
+                      onChange={e => setForm(f => ({ ...f, rkauto_token1: e.target.value }))}
+                      maxLength={150}
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <div className="label" style={{ marginBottom: 4 }}>Token 2</div>
+                    <input
+                      type="text" className="input"
+                      placeholder="วาง token ตัวที่ 2 ที่ได้จาก RKAUTO"
+                      value={form.rkauto_token2}
+                      onChange={e => setForm(f => ({ ...f, rkauto_token2: e.target.value }))}
+                      maxLength={150}
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                    * Tokens ไม่ถูกเก็บในระบบ — ส่งไป RKAUTO ตอน register เท่านั้น
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ── Modal buttons ─────────────────────────────────────────── */}
