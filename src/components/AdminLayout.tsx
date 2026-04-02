@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import AdminSidebar from './AdminSidebar'
+import { ToastProvider } from './Toast'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -40,20 +41,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     })
   }, [pathname, router])
 
-  // Login page — no sidebar
+  // Login page — no sidebar (ยังคงมี toast ให้ใช้)
   if (pathname === '/login') {
-    return <>{children}</>
+    return <ToastProvider>{children}</ToastProvider>
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      <AdminSidebar
-        pendingDeposits={pendingDeposits}
-        pendingWithdrawals={pendingWithdrawals}
-      />
-      <div className="admin-main-content" style={{ flex: 1, minHeight: '100vh', overflowY: 'auto' }}>
-        {children}
+    <ToastProvider>
+      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+        <AdminSidebar
+          pendingDeposits={pendingDeposits}
+          pendingWithdrawals={pendingWithdrawals}
+        />
+        <div className="admin-main-content" style={{ flex: 1, minHeight: '100vh', overflowY: 'auto' }}>
+          {children}
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }
