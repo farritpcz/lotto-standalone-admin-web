@@ -500,55 +500,73 @@ export default function AutoBanPage() {
                 const actionOrder: Record<string, number> = { max_amount: 0, reduce_rate: 1, full_ban: 2 }
 
                 return Object.entries(grouped).map(([betType, rules]) => {
-                  const sorted = [...rules].sort((a, b) => (actionOrder[a.action] ?? 9) - (actionOrder[b.action] ?? 9))
+                  const sorted = [...rules].sort((a, b) => a.threshold_amount - b.threshold_amount)
                   const rate = sorted[0]?.rate || 0
+                  const maxThreshold = sorted[sorted.length - 1]?.threshold_amount || 1
 
                   return (
                     <div key={betType} className="p-4">
-                      {/* Header — ชื่อ bet type + rate */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm">{betType}</span>
-                          {rate > 0 && <span className="text-[10px] text-[var(--text-tertiary)]">rate x{rate}</span>}
+                      {/* Header */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="font-bold text-sm">{betType}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
+                          rate x{rate}
+                        </span>
+                        <span className="flex-1" />
+                        <span className="text-[10px] text-[var(--text-tertiary)]">{sorted.length} ระดับ</span>
+                      </div>
+
+                      {/* ⭐ Progress bar แนวนอน — แสดงขั้นบันได */}
+                      <div className="relative rounded-xl overflow-hidden" style={{ background: 'var(--bg-tertiary)', height: '48px' }}>
+                        {/* แถบสี gradient */}
+                        <div className="absolute inset-0 flex">
+                          {sorted.map((r, i) => {
+                            const width = i === 0
+                              ? (r.threshold_amount / maxThreshold) * 100
+                              : ((r.threshold_amount - sorted[i - 1].threshold_amount) / maxThreshold) * 100
+                            const bgColor = r.action === 'full_ban' ? '#ef4444'
+                              : r.action === 'max_amount' ? '#3b82f6'
+                              : `rgba(245,166,35,${0.4 + (i / sorted.length) * 0.6})`
+                            return (
+                              <div
+                                key={r.id}
+                                className="h-full flex items-center justify-center cursor-pointer hover:brightness-110 transition-all"
+                                style={{ width: `${width}%`, background: bgColor, minWidth: '30px' }}
+                                onClick={() => setEditingRule({ ...r })}
+                                title={`${r.action === 'full_ban' ? 'อั้นเต็ม' : r.action === 'max_amount' ? 'จำกัดยอด' : `ลดเรท x${r.reduced_rate}`} — ${fmtMoney(r.threshold_amount)}`}
+                              >
+                                <span className="text-white text-[9px] font-bold truncate px-1">
+                                  {r.action === 'full_ban' ? '🚫' : r.action === 'max_amount' ? '📊' : `x${r.reduced_rate}`}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
 
-                      {/* ระดับขั้นบันไดในแถวเดียว */}
-                      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                        {sorted.map(r => {
-                          const ac = actionConfig[r.action] || actionConfig.full_ban
+                      {/* Labels ด้านล่าง */}
+                      <div className="flex mt-1.5">
+                        {sorted.map((r, i) => {
+                          const width = i === 0
+                            ? (r.threshold_amount / maxThreshold) * 100
+                            : ((r.threshold_amount - sorted[i - 1].threshold_amount) / maxThreshold) * 100
                           return (
-                            <div
-                              key={r.id}
-                              className="rounded-lg p-3 text-center cursor-pointer hover:opacity-80 transition-all"
-                              onClick={() => setEditingRule({ ...r })}
-                              style={{
-                                background: r.action === 'full_ban' ? 'rgba(239,68,68,0.08)'
-                                  : r.action === 'reduce_rate' ? 'rgba(245,166,35,0.08)'
-                                  : 'rgba(59,130,246,0.08)',
-                                border: `1px solid ${r.action === 'full_ban' ? 'rgba(239,68,68,0.2)'
-                                  : r.action === 'reduce_rate' ? 'rgba(245,166,35,0.2)'
-                                  : 'rgba(59,130,246,0.2)'}`,
-                              }}
-                            >
-                              <div className="text-lg mb-1">{ac.icon}</div>
-                              <div className="text-[10px] font-semibold mb-1" style={{
-                                color: r.action === 'full_ban' ? '#ef4444'
-                                  : r.action === 'reduce_rate' ? '#f5a623'
-                                  : '#3b82f6',
-                              }}>
-                                {ac.label}
-                              </div>
-                              <div className="text-base font-bold text-yellow-400 font-mono">
+                            <div key={r.id} className="text-center" style={{ width: `${width}%`, minWidth: '30px' }}>
+                              <div className="text-[9px] font-mono font-bold text-yellow-400 truncate">
                                 {fmtMoney(r.threshold_amount)}
                               </div>
-                              {r.action === 'reduce_rate' && r.reduced_rate > 0 && (
-                                <div className="text-[9px] text-[var(--text-tertiary)] mt-0.5">เรท x{r.reduced_rate}</div>
-                              )}
-                              <div className="text-[9px] text-[var(--text-tertiary)] mt-1">กดเพื่อแก้ไข</div>
                             </div>
                           )
                         })}
+                      </div>
+
+                      {/* Legend */}
+                      <div className="flex items-center gap-4 mt-2 text-[9px] text-[var(--text-tertiary)]">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#3b82f6' }} /> จำกัดยอด</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#f5a623' }} /> ลดเรท</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#ef4444' }} /> อั้นเต็ม</span>
+                        <span className="flex-1" />
+                        <span>กดที่แถบเพื่อแก้ไข</span>
                       </div>
                     </div>
                   )
