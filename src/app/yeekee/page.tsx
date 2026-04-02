@@ -172,6 +172,7 @@ export default function YeekeeMonitorPage() {
   const [rounds, setRounds] = useState<YeekeeRound[]>([])
   const [stats, setStats] = useState<YeekeeStats | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]) // default วันนี้
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -179,7 +180,7 @@ export default function YeekeeMonitorPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const params: Record<string, unknown> = { page, per_page: perPage }
+      const params: Record<string, unknown> = { page, per_page: perPage, date: selectedDate }
       if (statusFilter) params.status = statusFilter
 
       const [roundsRes, statsRes] = await Promise.all([
@@ -195,7 +196,7 @@ export default function YeekeeMonitorPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, statusFilter])
+  }, [page, statusFilter, selectedDate])
 
   useEffect(() => {
     fetchData()
@@ -239,21 +240,32 @@ export default function YeekeeMonitorPage() {
         </div>
       )}
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-4">
-        {FILTERS.map(f => (
-          <button
-            key={f.value}
-            onClick={() => { setStatusFilter(f.value); setPage(1) }}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              statusFilter === f.value
-                ? 'bg-[var(--accent-primary)] text-white'
-                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Filter Tabs + Date Picker */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex gap-2">
+          {FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => { setStatusFilter(f.value); setPage(1) }}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                statusFilter === f.value
+                  ? 'bg-[var(--accent-primary)] text-white'
+                  : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        {/* ⭐ เลือกวันที่ — ดูย้อนหลังได้ */}
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => { setSelectedDate(e.target.value); setPage(1) }}
+          className="px-3 py-1.5 rounded-lg text-sm border border-[var(--border-color)] focus:outline-none"
+          style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+        />
       </div>
 
       {/* ⭐ Round Cards — แบบ gradient คล้ายหน้าสมาชิก */}
