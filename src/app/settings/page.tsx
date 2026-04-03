@@ -8,6 +8,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { settingApi } from '@/lib/api'
 
 interface Setting { id: number; key: string; value: string; description: string }
@@ -45,6 +46,28 @@ export default function SettingsPage() {
           ✓ {message}
         </div>
       )}
+
+      {/* Quick links */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Link href="/settings/theme" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 16px', borderRadius: 10,
+          background: '#1e1e2e', border: '1px solid #333',
+          color: '#ddd', fontSize: 13, fontWeight: 600,
+          textDecoration: 'none',
+        }}>
+          🎨 Theme Settings
+        </Link>
+        <Link href="/settings/bank-accounts" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 16px', borderRadius: 10,
+          background: '#1e1e2e', border: '1px solid #333',
+          color: '#ddd', fontSize: 13, fontWeight: 600,
+          textDecoration: 'none',
+        }}>
+          🏦 Bank Accounts
+        </Link>
+      </div>
 
       <div className="card-surface" style={{ padding: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

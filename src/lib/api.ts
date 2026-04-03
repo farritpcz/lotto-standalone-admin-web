@@ -141,6 +141,12 @@ export const settingApi = {
   update: (data: Record<string, unknown>) => api.put('/settings', data),
 }
 
+// ⭐ Agent Theme — ตั้งค่าสีธีม
+export const agentThemeApi = {
+  get: () => api.get('/agent/theme'),
+  update: (data: Record<string, string>) => api.put('/agent/theme', data),
+}
+
 // =============================================================================
 // Deposit Requests — อนุมัติ/ปฏิเสธคำขอฝากเงิน
 // =============================================================================
