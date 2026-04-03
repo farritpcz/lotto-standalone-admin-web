@@ -284,17 +284,10 @@ export default function DepositWithdrawSettingsPage() {
               <input type="checkbox" checked={s.auto_approve_withdraw === 'true'} onChange={() => toggle('auto_approve_withdraw')} style={{ accentColor: 'var(--accent)' }} />
               เปิดอนุมัติอัตโนมัติ
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <div style={labelStyle}>อนุมัติอัตโนมัติเฉพาะยอดไม่เกิน (บาท)</div>
-                <input type="number" className={inputStyle} value={s.auto_approve_withdraw_max} onChange={e => u('auto_approve_withdraw_max', e.target.value)} min={0} />
-                <div style={hintStyle}>ยอดถอน ≤ {Number(s.auto_approve_withdraw_max).toLocaleString()} → อนุมัติทันที · 0 = ทุกยอด</div>
-              </div>
-              <div>
-                <div style={labelStyle}>รอดำเนินการ (นาที)</div>
-                <input type="number" className={inputStyle} value={s.withdraw_hold_minutes} onChange={e => u('withdraw_hold_minutes', e.target.value)} min={0} />
-                <div style={hintStyle}>0 = ไม่รอ ดำเนินการทันที</div>
-              </div>
+            <div>
+              <div style={labelStyle}>อนุมัติอัตโนมัติเฉพาะยอดไม่เกิน (บาท)</div>
+              <input type="number" className={inputStyle} value={s.auto_approve_withdraw_max} onChange={e => u('auto_approve_withdraw_max', e.target.value)} min={0} />
+              <div style={hintStyle}>ยอดถอน ≤ {Number(s.auto_approve_withdraw_max).toLocaleString()} → อนุมัติทันที · ยอดเกิน → รอแอดมินตรวจสอบ · 0 = ทุกยอด</div>
             </div>
           </div>
 
