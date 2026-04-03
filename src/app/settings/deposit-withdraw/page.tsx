@@ -243,19 +243,6 @@ export default function DepositWithdrawSettingsPage() {
             </div>
           </div>
 
-          {/* ตรวจสอบยอดสูง */}
-          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <AlertTriangle size={14} color="#FF9F0A" />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>ตรวจสอบยอดถอนสูง</span>
-            </div>
-            <div>
-              <div style={labelStyle}>ยอดถอนเกิน (บาท) → เข้ารายการรอตรวจสอบ</div>
-              <input type="number" className={inputStyle} value={s.withdraw_review_threshold} onChange={e => u('withdraw_review_threshold', e.target.value)} min={0} />
-              <div style={hintStyle}>ยอดถอนที่เกินจำนวนนี้จะไม่อนุมัติอัตโนมัติ ต้องรอแอดมินตรวจสอบก่อน · 0 = ปิดใช้งาน</div>
-            </div>
-          </div>
-
           {/* ค่าธรรมเนียม */}
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -271,6 +258,19 @@ export default function DepositWithdrawSettingsPage() {
                 <div style={labelStyle}>ค่าธรรมเนียมขั้นต่ำ (บาท)</div>
                 <input type="number" className={inputStyle} value={s.withdraw_fee_min} onChange={e => u('withdraw_fee_min', e.target.value)} min={0} />
               </div>
+            </div>
+          </div>
+
+          {/* ตรวจสอบยอดสูง */}
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <AlertTriangle size={14} color="#FF9F0A" />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>ตรวจสอบยอดถอนสูง</span>
+            </div>
+            <div>
+              <div style={labelStyle}>ยอดถอนเกิน (บาท) → เข้ารายการรอตรวจสอบ</div>
+              <input type="number" className={inputStyle} value={s.withdraw_review_threshold} onChange={e => u('withdraw_review_threshold', e.target.value)} min={0} />
+              <div style={hintStyle}>ยอดถอนที่เกินจำนวนนี้จะไม่อนุมัติอัตโนมัติ ต้องรอแอดมินตรวจสอบก่อน · 0 = ปิดใช้งาน</div>
             </div>
           </div>
 
