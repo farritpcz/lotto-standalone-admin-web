@@ -34,11 +34,14 @@ interface Settings {
   withdraw_fee_min: string
   withdraw_hold_minutes: string
   withdraw_note: string
+  // ถอน — ตรวจสอบยอดสูง
+  withdraw_review_threshold: string
   // ทั่วไป
   maintenance_deposit: string
   maintenance_withdraw: string
   new_member_first_deposit_bonus: string
   new_member_first_deposit_bonus_max: string
+  new_member_first_deposit_turnover: string
 }
 
 const DEFAULTS: Settings = {
@@ -49,8 +52,10 @@ const DEFAULTS: Settings = {
   auto_approve_withdraw: 'false', auto_approve_withdraw_max: '3000',
   withdraw_open_time: '00:00', withdraw_close_time: '23:59',
   withdraw_fee_percent: '0', withdraw_fee_min: '0', withdraw_hold_minutes: '0', withdraw_note: '',
+  withdraw_review_threshold: '10000',
   maintenance_deposit: 'false', maintenance_withdraw: 'false',
   new_member_first_deposit_bonus: '0', new_member_first_deposit_bonus_max: '0',
+  new_member_first_deposit_turnover: '1',
 }
 
 export default function DepositWithdrawSettingsPage() {
@@ -240,6 +245,19 @@ export default function DepositWithdrawSettingsPage() {
             </div>
           </div>
 
+          {/* ตรวจสอบยอดสูง */}
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <AlertTriangle size={14} color="#FF9F0A" />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>ตรวจสอบยอดถอนสูง</span>
+            </div>
+            <div>
+              <div style={labelStyle}>ยอดถอนเกิน (บาท) → เข้ารายการรอตรวจสอบ</div>
+              <input type="number" className={inputStyle} value={s.withdraw_review_threshold} onChange={e => u('withdraw_review_threshold', e.target.value)} min={0} />
+              <div style={hintStyle}>ยอดถอนที่เกินจำนวนนี้จะไม่อนุมัติอัตโนมัติ ต้องรอแอดมินตรวจสอบก่อน · 0 = ปิดใช้งาน</div>
+            </div>
+          </div>
+
           {/* ค่าธรรมเนียม */}
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -318,17 +336,30 @@ export default function DepositWithdrawSettingsPage() {
          โบนัสสมาชิกใหม่
          ══════════════════════════════════════════════════════════════ */}
       <div className="card-surface" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>โบนัสสมาชิกใหม่ (ฝากครั้งแรก)</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>โบนัสสมาชิกใหม่ (ฝากครั้งแรก)</div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 14 }}>
+          สูตร: เทิร์นโอเวอร์ที่ต้องทำ = (ยอดฝาก + โบนัส) x เทิร์นโอเวอร์
+          {s.new_member_first_deposit_bonus !== '0' && (
+            <span style={{ color: 'var(--accent)', marginLeft: 8 }}>
+              ตัวอย่าง: ฝาก 1,000 + โบนัส {Math.min(Number(s.new_member_first_deposit_bonus) / 100 * 1000, Number(s.new_member_first_deposit_bonus_max) || Infinity).toLocaleString()} = ต้องเทิร์น {((1000 + Math.min(Number(s.new_member_first_deposit_bonus) / 100 * 1000, Number(s.new_member_first_deposit_bonus_max) || Infinity)) * Number(s.new_member_first_deposit_turnover || 1)).toLocaleString()} บาท
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div>
             <div style={labelStyle}>โบนัส (%)</div>
             <input type="number" className={inputStyle} value={s.new_member_first_deposit_bonus} onChange={e => u('new_member_first_deposit_bonus', e.target.value)} min={0} />
-            <div style={hintStyle}>0 = ไม่มีโบนัส · เช่น 100 = ฝาก 100 ได้ 200</div>
+            <div style={hintStyle}>0 = ไม่มีโบนัส</div>
           </div>
           <div>
             <div style={labelStyle}>โบนัสสูงสุด (บาท)</div>
             <input type="number" className={inputStyle} value={s.new_member_first_deposit_bonus_max} onChange={e => u('new_member_first_deposit_bonus_max', e.target.value)} min={0} />
-            <div style={hintStyle}>0 = ไม่จำกัด · เช่น 5000 = โบนัสไม่เกิน 5,000 บาท</div>
+            <div style={hintStyle}>0 = ไม่จำกัด</div>
+          </div>
+          <div>
+            <div style={labelStyle}>เทิร์นโอเวอร์ (เท่า)</div>
+            <input type="number" className={inputStyle} value={s.new_member_first_deposit_turnover} onChange={e => u('new_member_first_deposit_turnover', e.target.value)} min={0} step="0.5" />
+            <div style={hintStyle}>เช่น 5 = ต้องแทง 5 เท่า</div>
           </div>
         </div>
       </div>
