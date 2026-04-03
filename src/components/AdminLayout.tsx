@@ -26,11 +26,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // ข้ามถ้าอยู่ที่ login page
     if (pathname === '/login') return
 
-    const token = localStorage.getItem('admin_token')
-    if (!token) {
-      router.push('/login')
-      return
-    }
+    // ⭐ httpOnly cookie → ไม่ต้องเช็ค localStorage
+    // middleware.ts จัดการ redirect ถ้าไม่มี cookie แล้ว
+    // ถ้า API call แรก return 401 → response interceptor จะ redirect ไป login
 
     // Fetch pending counts สำหรับ sidebar badge
     import('@/lib/api').then(({ api }) => {

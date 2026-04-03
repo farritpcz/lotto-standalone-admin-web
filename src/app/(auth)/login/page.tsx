@@ -18,8 +18,8 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setError(''); setLoading(true)
     try {
-      const res = await adminAuthApi.login({ username, password })
-      localStorage.setItem('admin_token', res.data.data?.token || '')
+      await adminAuthApi.login({ username, password })
+      // ⭐ JWT token อยู่ใน httpOnly cookie แล้ว (set โดย backend) — ไม่ต้อง localStorage
       router.push('/dashboard')
     } catch { setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง') }
     finally { setLoading(false) }

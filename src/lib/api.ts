@@ -9,23 +9,31 @@
  *   TODO: แยก shared admin API functions เป็น @lotto/admin-api
  */
 
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 
 // ⭐ port 8081 (admin API) ไม่ใช่ 8080 (member API)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1'
+
+/** อ่าน cookie value จาก document.cookie */
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
 
 const createApiClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: API_BASE_URL,
     timeout: 30000,
+    withCredentials: true, // ⭐ ส่ง httpOnly cookie ทุก request (แทน localStorage token)
     headers: { 'Content-Type': 'application/json' },
   })
 
-  // Admin JWT token
-  client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+  // ⭐ CSRF: อ่าน admin_csrf_token cookie → ส่งกลับใน X-CSRF-Token header
+  client.interceptors.request.use((config) => {
+    const csrfToken = getCookie('admin_csrf_token')
+    if (csrfToken && config.headers) {
+      config.headers['X-CSRF-Token'] = csrfToken
     }
     return config
   })
@@ -34,8 +42,10 @@ const createApiClient = (): AxiosInstance => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401 && typeof window !== 'undefined') {
-        localStorage.removeItem('admin_token')
-        window.location.href = '/login'
+        // ⭐ ไม่ต้องลบ localStorage — httpOnly cookie จัดการโดย browser
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login'
+        }
       }
       return Promise.reject(error)
     }
@@ -54,6 +64,8 @@ export const api = createApiClient()
 export const adminAuthApi = {
   login: (data: { username: string; password: string }) =>
     api.post('/auth/login', data),
+  /** Logout — ลบ httpOnly cookie ที่ backend */
+  logout: () => api.post('/auth/logout'),
 }
 
 // Dashboard
