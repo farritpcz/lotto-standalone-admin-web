@@ -26,13 +26,6 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('admin_token')?.value
   const isPublicPath = PUBLIC_PATHS.some(p => pathname.startsWith(p))
 
-  // ถ้ามี token + เข้าหน้า login → redirect ไป dashboard
-  if (isPublicPath && token) {
-    return addSecurityHeaders(
-      NextResponse.redirect(new URL('/', request.url))
-    )
-  }
-
   // ⭐ ถ้าไม่มี cookie + ไม่ใช่หน้า public → redirect login
   if (!isPublicPath && !token) {
     return addSecurityHeaders(

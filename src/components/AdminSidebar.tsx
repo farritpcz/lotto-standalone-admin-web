@@ -131,13 +131,9 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
     withdrawals: pendingWithdrawals,
   }
 
-  const handleLogout = async () => {
-    // ⭐ เรียก API ลบ httpOnly cookie ก่อน redirect
-    try {
-      const { adminAuthApi } = await import('@/lib/api')
-      await adminAuthApi.logout()
-    } catch {}
-    router.push('/login')
+  const handleLogout = () => {
+    fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+    window.location.href = '/login'
   }
 
   // Sidebar width ตาม collapse state
