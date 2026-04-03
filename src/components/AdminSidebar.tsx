@@ -76,7 +76,7 @@ export const menuGroups: { label: string; items: { href: string; label: string; 
       { href: '/staff', label: 'พนักงาน', icon: UsersRound },
       { href: '/cms', label: 'จัดการเว็บ', icon: Globe },
       { href: '/activity-log', label: 'Activity Log', icon: FileText },
-      { href: '/settings', label: 'ตั้งค่า', icon: Settings },
+      // { href: '/settings', label: 'ตั้งค่า', icon: Settings }, // TODO: ยังไม่ได้ใช้
       { href: '/settings/deposit-withdraw', label: 'ตั้งค่าฝาก/ถอน', icon: ArrowDownUp },
       { href: '/settings/bank-accounts', label: 'บัญชีฝาก/ถอน', icon: CreditCard },
       { href: '/contact-channels', label: 'ช่องทางติดต่อ', icon: Bell },
