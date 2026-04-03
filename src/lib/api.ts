@@ -11,8 +11,8 @@
 
 import axios, { AxiosInstance } from 'axios'
 
-// ⭐ port 8081 (admin API) ไม่ใช่ 8080 (member API)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1'
+// ⭐ ใช้ relative URL → Next.js rewrites proxy ไป backend (same-origin สำหรับ httpOnly cookie)
+const API_BASE_URL = '/api/v1'
 
 /** อ่าน cookie value จาก document.cookie */
 function getCookie(name: string): string | null {

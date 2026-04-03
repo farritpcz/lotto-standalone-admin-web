@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     try {
       await adminAuthApi.login({ username, password })
       // ⭐ JWT token อยู่ใน httpOnly cookie แล้ว (set โดย backend) — ไม่ต้อง localStorage
-      router.push('/dashboard')
+      window.location.href = '/dashboard'
     } catch { setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง') }
     finally { setLoading(false) }
   }
