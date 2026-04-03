@@ -18,11 +18,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { api, agentThemeApi } from '@/lib/api'
+import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import { Image, MessageSquareText, FlaskConical, Palette, Plus } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageUpload from '@/components/ImageUpload'
+import ThemeTab from '@/components/ThemeTab'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล CMS
@@ -605,129 +606,3 @@ export default function CMSPage() {
   )
 }
 
-// =============================================================================
-// ThemeTab — ตั้งค่าสีธีม (embedded ใน CMS page)
-// =============================================================================
-
-interface ThemeColors {
-  theme_primary_color: string; theme_secondary_color: string; theme_bg_color: string
-  theme_accent_color: string; theme_card_gradient1: string; theme_card_gradient2: string
-  theme_nav_bg: string; theme_header_bg: string
-}
-
-const DEFAULT_THEME: ThemeColors = {
-  theme_primary_color: '#34C759', theme_secondary_color: '#30DB5B', theme_bg_color: '#000000',
-  theme_accent_color: '#2dd4bf', theme_card_gradient1: '#1a472a', theme_card_gradient2: '#2d6a4f',
-  theme_nav_bg: '#0d1f1a', theme_header_bg: '#0d3d2e',
-}
-
-const THEME_PRESETS = [
-  { name: 'Emerald', emoji: '💚', c: { ...DEFAULT_THEME } },
-  { name: 'Purple', emoji: '💜', c: { theme_primary_color:'#AF52DE',theme_secondary_color:'#BF5AF2',theme_bg_color:'#0a0015',theme_accent_color:'#c084fc',theme_card_gradient1:'#2d1b4e',theme_card_gradient2:'#5b21b6',theme_nav_bg:'#1a0a2e',theme_header_bg:'#2d1b4e' } },
-  { name: 'Gold', emoji: '🏆', c: { theme_primary_color:'#D4AF37',theme_secondary_color:'#FFD700',theme_bg_color:'#0a0a0a',theme_accent_color:'#F0C060',theme_card_gradient1:'#1a1a0a',theme_card_gradient2:'#3d3520',theme_nav_bg:'#111111',theme_header_bg:'#1a1a0a' } },
-  { name: 'Ocean', emoji: '🌊', c: { theme_primary_color:'#007AFF',theme_secondary_color:'#5AC8FA',theme_bg_color:'#000a1a',theme_accent_color:'#64D2FF',theme_card_gradient1:'#0a2a4a',theme_card_gradient2:'#1a4a7a',theme_nav_bg:'#0a1628',theme_header_bg:'#0a2a4a' } },
-  { name: 'Ruby', emoji: '❤️', c: { theme_primary_color:'#FF3B30',theme_secondary_color:'#FF6961',theme_bg_color:'#0a0000',theme_accent_color:'#FF6B6B',theme_card_gradient1:'#3a0a0a',theme_card_gradient2:'#6a1a1a',theme_nav_bg:'#1a0808',theme_header_bg:'#3a0a0a' } },
-]
-
-const THEME_FIELDS: { key: keyof ThemeColors; label: string; desc: string }[] = [
-  { key: 'theme_primary_color', label: 'Primary', desc: 'สีหลัก' },
-  { key: 'theme_secondary_color', label: 'Secondary', desc: 'สีรอง' },
-  { key: 'theme_header_bg', label: 'Header', desc: 'พื้นหลัง header' },
-  { key: 'theme_nav_bg', label: 'Nav', desc: 'เมนูล่าง' },
-  { key: 'theme_card_gradient1', label: 'Card Start', desc: 'gradient เริ่ม' },
-  { key: 'theme_card_gradient2', label: 'Card End', desc: 'gradient จบ' },
-  { key: 'theme_bg_color', label: 'Page BG', desc: 'พื้นหลัง' },
-  { key: 'theme_accent_color', label: 'Accent', desc: 'สีเน้น' },
-]
-
-function ThemeTab() {
-  const [colors, setColors] = useState<ThemeColors>(DEFAULT_THEME)
-  const [original, setOriginal] = useState<ThemeColors>(DEFAULT_THEME)
-  const [saving, setSaving] = useState(false)
-  const [ver, setVer] = useState(0)
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => {
-    agentThemeApi.get().then(res => {
-      const d = res.data?.data || {}
-      const c: ThemeColors = { ...DEFAULT_THEME }
-      for (const k of Object.keys(c) as (keyof ThemeColors)[]) {
-        if (d[k]) c[k] = d[k]
-      }
-      setColors(c); setOriginal(c); setVer(d.theme_version || 0)
-    }).catch(() => {})
-  }, [])
-
-  const save = async () => {
-    setSaving(true)
-    try {
-      await agentThemeApi.update(colors)
-      setOriginal({ ...colors }); setVer(v => v + 1)
-      setMsg('บันทึกสำเร็จ — หน้าบ้านจะเห็นสีใหม่ทันที')
-    } catch { setMsg('บันทึกไม่สำเร็จ') }
-    setSaving(false); setTimeout(() => setMsg(''), 4000)
-  }
-
-  const changed = JSON.stringify(colors) !== JSON.stringify(original)
-
-  return (
-    <div>
-      {msg && <div style={{ background: msg.includes('สำเร็จ') ? 'var(--status-success-bg)' : 'var(--status-error-bg)', color: msg.includes('สำเร็จ') ? 'var(--status-success)' : 'var(--status-error)', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: 13 }}>{msg.includes('สำเร็จ') ? '✓' : '✕'} {msg}</div>}
-
-      {/* Presets */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        {THEME_PRESETS.map(p => (
-          <button key={p.name} onClick={() => setColors({ ...p.c })} style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)',
-            fontSize: 12, cursor: 'pointer',
-          }}>
-            {p.emoji} {p.name}
-            <span style={{ width: 12, height: 12, borderRadius: '50%', background: p.c.theme_primary_color, border: '1px solid rgba(255,255,255,0.15)' }} />
-          </button>
-        ))}
-      </div>
-
-      {/* Color Fields — 2 columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10, marginBottom: 16 }}>
-        {THEME_FIELDS.map(f => (
-          <div key={f.key} style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="color" value={colors[f.key]} onChange={e => setColors({ ...colors, [f.key]: e.target.value })} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer', background: 'transparent', flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{f.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{f.desc}</div>
-            </div>
-            <input type="text" value={colors[f.key]} onChange={e => setColors({ ...colors, [f.key]: e.target.value })} style={{ width: 75, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 6px', color: 'var(--text-primary)', fontSize: 11, fontFamily: 'monospace' }} />
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: colors[f.key], border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
-          </div>
-        ))}
-      </div>
-
-      {/* Preview */}
-      <div style={{ marginBottom: 16 }}>
-        <div className="label" style={{ marginBottom: 8 }}>Preview (version: {ver})</div>
-        <div style={{ background: colors.theme_bg_color, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', maxWidth: 280 }}>
-          <div style={{ background: colors.theme_header_bg, padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: colors.theme_primary_color, fontSize: 11, fontWeight: 700 }}>฿3,351</span>
-            <span style={{ color: '#fff', fontSize: 12, fontWeight: 800 }}>LOTTO</span>
-          </div>
-          <div style={{ background: `linear-gradient(135deg, ${colors.theme_card_gradient1}, ${colors.theme_card_gradient2})`, margin: 8, borderRadius: 10, padding: 10 }}>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 9 }}>ยอดเงินคงเหลือ</div>
-            <div style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>฿3,351.00</div>
-          </div>
-          <div style={{ background: colors.theme_nav_bg, display: 'flex', justifyContent: 'space-around', padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            {['หน้าหลัก','หวย','ผล','เงิน','บัญชี'].map((l,i) => <span key={l} style={{ fontSize: 7, color: i===0 ? colors.theme_primary_color : '#888', fontWeight: i===0 ? 700 : 400 }}>{l}</span>)}
-          </div>
-        </div>
-      </div>
-
-      {/* Save */}
-      {changed && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" onClick={() => setColors({ ...original })} style={{ height: 36, fontSize: 13 }}>รีเซ็ต</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving} style={{ height: 36, fontSize: 13 }}>{saving ? 'กำลังบันทึก...' : 'บันทึกธีม'}</button>
-        </div>
-      )}
-    </div>
-  )
-}
