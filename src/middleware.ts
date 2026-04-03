@@ -2,10 +2,10 @@
  * Next.js Middleware — Admin Route Guard + Security Headers
  *
  * ป้องกันเข้าหน้า admin โดยไม่ login:
- * - ถ้าไม่มี admin_token cookie → redirect ไป /login
+ * - ถ้าไม่มี admin_token httpOnly cookie → redirect ไป /login
  * - ถ้ามี token แล้วเข้า /login → redirect ไป /
  *
- * ⚠️ เมื่อ migrate เป็น httpOnly cookie → uncomment redirect logic
+ * ⭐ httpOnly cookie ถูก set โดย backend (admin-api)
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -33,12 +33,12 @@ export function middleware(request: NextRequest) {
     )
   }
 
-  // ⚠️ disabled จนกว่าจะ migrate เป็น httpOnly cookie
-  // if (!isPublicPath && !token) {
-  //   return addSecurityHeaders(
-  //     NextResponse.redirect(new URL('/login', request.url))
-  //   )
-  // }
+  // ⭐ ถ้าไม่มี cookie + ไม่ใช่หน้า public → redirect login
+  if (!isPublicPath && !token) {
+    return addSecurityHeaders(
+      NextResponse.redirect(new URL('/login', request.url))
+    )
+  }
 
   return addSecurityHeaders(NextResponse.next())
 }

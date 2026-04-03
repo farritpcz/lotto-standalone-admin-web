@@ -42,8 +42,10 @@ const createApiClient = (): AxiosInstance => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401 && typeof window !== 'undefined') {
-        // ⭐ ไม่ต้องลบ localStorage — httpOnly cookie จัดการโดย browser
+        // ⭐ Cookie หมดอายุ/invalid → redirect login
         if (!window.location.pathname.startsWith('/login')) {
+          // ลบ old localStorage token ที่อาจค้างจากก่อน migration
+          try { localStorage.removeItem('admin_token') } catch {}
           window.location.href = '/login'
         }
       }
