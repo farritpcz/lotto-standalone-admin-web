@@ -142,9 +142,9 @@ export default function ThemeSettingsPage() {
       await agentThemeApi.update(colors)
       setOriginal({ ...colors })
       setVersion(v => v + 1)
-      toast('บันทึกธีมสำเร็จ — หน้าบ้านจะเห็นสีใหม่ทันที', 'success')
+      toast.success('บันทึกธีมสำเร็จ — หน้าบ้านจะเห็นสีใหม่ทันที')
     } catch {
-      toast('บันทึกไม่สำเร็จ', 'error')
+      toast.error('บันทึกไม่สำเร็จ')
     } finally {
       setSaving(false)
     }
@@ -152,12 +152,12 @@ export default function ThemeSettingsPage() {
 
   const handleReset = () => {
     setColors({ ...original })
-    toast('รีเซ็ตเป็นค่าที่บันทึกล่าสุด', 'info')
+    toast.success('รีเซ็ตเป็นค่าที่บันทึกล่าสุด')
   }
 
   const applyPreset = (preset: typeof PRESETS[number]) => {
     setColors({ ...preset.colors })
-    toast(`ใช้ธีม ${preset.name}`, 'info')
+    toast.success(`ใช้ธีม ${preset.name}`)
   }
 
   const hasChanges = JSON.stringify(colors) !== JSON.stringify(original)

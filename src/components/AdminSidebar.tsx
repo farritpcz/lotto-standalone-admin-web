@@ -23,7 +23,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Ticket, Clock, CheckCircle, Ban, Zap, DollarSign,
   ArrowDownToLine, ArrowUpFromLine, ArrowDownUp, ClipboardList, Receipt,
-  Star, Gift, BarChart3, Link2, UsersRound, Globe, FileText,
+  Star, Gift, BarChart3, Link2, UsersRound, Globe, FileText, Palette,
   Settings, CreditCard, Bell, ChevronLeft, ChevronRight,
   type LucideIcon,
 } from 'lucide-react'
@@ -75,6 +75,7 @@ export const menuGroups: { label: string; items: { href: string; label: string; 
       { href: '/affiliate', label: 'Affiliate', icon: Link2 },
       { href: '/staff', label: 'พนักงาน', icon: UsersRound },
       { href: '/cms', label: 'จัดการเว็บ', icon: Globe },
+      { href: '/settings/theme', label: 'ตั้งค่าธีมสี', icon: Palette },
       { href: '/activity-log', label: 'Activity Log', icon: FileText },
       { href: '/settings', label: 'ตั้งค่า', icon: Settings },
       { href: '/settings/deposit-withdraw', label: 'ตั้งค่าฝาก/ถอน', icon: ArrowDownUp },
