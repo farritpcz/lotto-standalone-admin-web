@@ -194,8 +194,11 @@ export default function AffiliatePage() {
           {/* Per-lottery rates */}
           {lotterySettings.length > 0 && (
             <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
-                Rate เฉพาะประเภท (override default)
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Rate เฉพาะประเภท (override default)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  ถ้าหวยประเภทไหนมี rate เฉพาะ → ใช้ rate นั้น · ถ้าไม่มี → ใช้ Default ({defaultSetting?.commission_rate || 0}%) แทน
+                </div>
               </div>
               {lotterySettings.map((s, i) => (
                 <div key={s.id} style={{
