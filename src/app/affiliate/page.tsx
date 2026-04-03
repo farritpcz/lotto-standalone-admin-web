@@ -1,336 +1,330 @@
 /**
- * Admin — หน้าตั้งค่า Affiliate / Commission
+ * Admin — ตั้งค่า Affiliate / Commission
  *
- * Layout 2 sections:
- *  1. Commission Settings — ตาราง default + per-lottery rates, form แก้ไข/เพิ่ม
- *  2. Commission Report   — สรุปรายได้ค่าคอมของ referrers ทุกคน
- *
- * ความสัมพันธ์:
- *  - เรียก admin-api (#5): GET/POST/DELETE /affiliate/settings, GET /affiliate/report
- *  - settings ที่ตั้งที่นี่ → commission_job (#5) อ่านแล้วคำนวณเมื่อ SubmitResult
- *  - member เห็น rate ที่ตั้งไว้ที่นี่ที่หน้า /referral ใน member-web (#4)
+ * 3 sections:
+ *  1. วิธีการทำงาน — อธิบายให้ admin เข้าใจง่ายๆ
+ *  2. ตั้งค่า Commission Rate — default + per-lottery
+ *  3. รายงาน Commission — สรุปยอดต่อ referrer
  */
 'use client'
 
 import { useEffect, useState } from 'react'
 import { affiliateApi, lotteryMgmtApi, type AffiliateSetting, type AffiliateReportRow } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 import Loading from '@/components/Loading'
+import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import { Users, Percent, ArrowDownToLine, FileText, Plus, Pencil, Trash2, Info } from 'lucide-react'
 
-// ===============================================================================
-// Types
-// ===============================================================================
-
-/** ประเภทหวยสำหรับ dropdown */
-interface LotteryType {
-  id: number
-  name: string
-  code: string
-}
-
-// ===============================================================================
-// Component หลัก
-// ===============================================================================
+interface LotteryType { id: number; name: string; code: string }
 
 export default function AffiliatePage() {
-  // ── State: settings ──────────────────────────────────────────────────────────
+  const { toast } = useToast()
   const [settings, setSettings] = useState<AffiliateSetting[]>([])
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
+  const [report, setReport] = useState<AffiliateReportRow[]>([])
   const [loadingSettings, setLoadingSettings] = useState(true)
+  const [loadingReport, setLoadingReport] = useState(true)
 
-  // ── State: form (upsert setting) ─────────────────────────────────────────────
+  // Form state
   const [showForm, setShowForm] = useState(false)
-  const [formLotteryTypeId, setFormLotteryTypeId] = useState<string>('') // '' = default (null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [formLotteryTypeId, setFormLotteryTypeId] = useState<string>('')
   const [formRate, setFormRate] = useState('')
   const [formWithdrawMin, setFormWithdrawMin] = useState('1')
   const [formWithdrawNote, setFormWithdrawNote] = useState('ถอนขั้นต่ำ 1 บาท')
   const [formSaving, setFormSaving] = useState(false)
-  const [formMsg, setFormMsg] = useState('')
-  const [formErr, setFormErr] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogProps | null>(null)
 
-  // ── State: report ─────────────────────────────────────────────────────────────
-  const [report, setReport] = useState<AffiliateReportRow[]>([])
-  const [loadingReport, setLoadingReport] = useState(true)
-
-  // ── State: pagination สำหรับตาราง commission report ─────────────────────────
-  const PER_PAGE = 20
-  const [reportPage, setReportPage] = useState(1)
-  const [reportTotal, setReportTotal] = useState(0)
-
-  // ── โหลดข้อมูลตอน mount ───────────────────────────────────────────────────────
   useEffect(() => {
-    // โหลด settings + lottery types พร้อมกัน
     Promise.all([
       affiliateApi.getSettings().then(res => setSettings(res.data.data || [])),
       lotteryMgmtApi.list().then(res => setLotteryTypes(res.data.data || [])),
     ]).catch(() => {}).finally(() => setLoadingSettings(false))
 
-    // โหลด commission report ครั้งแรก
-    loadReport()
-  }, [])
-
-  // ── โหลด commission report — ส่ง page + per_page ไปให้ API ────────────────
-  const loadReport = () => {
-    setLoadingReport(true)
-    affiliateApi.getReport({ page: reportPage, per_page: PER_PAGE })
+    affiliateApi.getReport()
       .then(res => {
         const data = res.data.data
-        if (Array.isArray(data)) {
-          setReport(data)
-          setReportTotal(data.length)
-        } else {
-          setReport(data?.items || [])
-          setReportTotal(data?.total || 0)
-        }
+        setReport(Array.isArray(data) ? data : data?.items || [])
       })
       .catch(() => {})
       .finally(() => setLoadingReport(false))
+  }, [])
+
+  // ── Form handlers ──
+  const openAddForm = () => {
+    setEditingId(null)
+    setFormLotteryTypeId(''); setFormRate(''); setFormWithdrawMin('1'); setFormWithdrawNote('ถอนขั้นต่ำ 1 บาท')
+    setShowForm(true)
   }
 
-  /* เมื่อเปลี่ยนหน้า report ให้โหลดใหม่ */
-  useEffect(() => { loadReport() }, [reportPage])
+  const openEditForm = (s: AffiliateSetting) => {
+    setEditingId(s.id)
+    setFormLotteryTypeId(s.lottery_type_id === null ? '' : String(s.lottery_type_id))
+    setFormRate(String(s.commission_rate)); setFormWithdrawMin(String(s.withdrawal_min))
+    setFormWithdrawNote(s.withdrawal_note || '')
+    setShowForm(true)
+  }
 
-  // ── Submit form ───────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const rate = parseFloat(formRate)
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      setFormErr('Commission rate ต้องอยู่ระหว่าง 0-100'); return
-    }
-    const withdrawMin = parseFloat(formWithdrawMin)
-    if (isNaN(withdrawMin) || withdrawMin < 0) {
-      setFormErr('ยอดถอนขั้นต่ำต้องเป็นตัวเลขบวก'); return
-    }
-
-    setFormErr('')
+    if (isNaN(rate) || rate < 0 || rate > 100) { toast.error('Rate ต้องอยู่ระหว่าง 0-100'); return }
     setFormSaving(true)
     try {
       await affiliateApi.upsertSetting({
         lottery_type_id: formLotteryTypeId === '' ? null : parseInt(formLotteryTypeId),
         commission_rate: rate,
-        withdrawal_min: withdrawMin,
+        withdrawal_min: parseFloat(formWithdrawMin) || 1,
         withdrawal_note: formWithdrawNote,
       })
-      setFormMsg('✅ บันทึกสำเร็จ')
+      toast.success('บันทึกสำเร็จ')
       setShowForm(false)
-      // reload settings
       affiliateApi.getSettings().then(res => setSettings(res.data.data || []))
-      setTimeout(() => setFormMsg(''), 3000)
-    } catch {
-      setFormErr('บันทึกไม่สำเร็จ กรุณาลองใหม่')
-    } finally {
-      setFormSaving(false)
-    }
+    } catch { toast.error('บันทึกไม่สำเร็จ') }
+    setFormSaving(false)
   }
 
-  // ── ลบ setting ────────────────────────────────────────────────────────────────
-  const handleDelete = async (id: number) => {
-    if (!confirm('ยืนยันการลบ setting นี้?')) return
-    await affiliateApi.deleteSetting(id).catch(() => {})
-    setSettings(prev => prev.filter(s => s.id !== id))
+  const handleDelete = (s: AffiliateSetting) => {
+    setConfirmDialog({
+      title: 'ลบ Setting',
+      message: `ยืนยันลบ rate ${s.commission_rate}% ${s.lottery_type?.name || 'Default'}?`,
+      type: 'danger',
+      confirmLabel: 'ลบ',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        await affiliateApi.deleteSetting(s.id).catch(() => {})
+        setSettings(prev => prev.filter(x => x.id !== s.id))
+        toast.success('ลบสำเร็จ')
+      },
+      onCancel: () => setConfirmDialog(null),
+    })
   }
 
-  // ── เปิด form พร้อม pre-fill ───────────────────────────────────────────────────
-  const openEditForm = (s?: AffiliateSetting) => {
-    if (s) {
-      setFormLotteryTypeId(s.lottery_type_id === null ? '' : String(s.lottery_type_id))
-      setFormRate(String(s.commission_rate))
-      setFormWithdrawMin(String(s.withdrawal_min))
-      setFormWithdrawNote(s.withdrawal_note || '')
-    } else {
-      // form ใหม่ — reset
-      setFormLotteryTypeId('')
-      setFormRate('')
-      setFormWithdrawMin('1')
-      setFormWithdrawNote('ถอนขั้นต่ำ 1 บาท')
-    }
-    setFormErr('')
-    setShowForm(true)
-  }
+  // ── Helpers ──
+  const defaultSetting = settings.find(s => s.lottery_type_id === null)
+  const lotterySettings = settings.filter(s => s.lottery_type_id !== null)
 
-  // ===============================================================================
-  // Render
-  // ===============================================================================
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="page-container">
+      <div className="page-header">
+        <h1>ตั้งค่า Affiliate</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+          ตั้ง commission rate ที่ผู้แนะนำจะได้รับจากยอดเดิมพันของเพื่อนที่ชวนมา
+        </p>
+      </div>
 
-      {/* ── Page Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">ตั้งค่า Affiliate</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            กำหนด commission rate ที่ผู้แนะนำจะได้รับ (% ของยอดเดิมพัน)
-          </p>
+      {/* ══════════════════════════════════════════════════════════════
+         วิธีการทำงาน — อธิบายง่ายๆ
+         ══════════════════════════════════════════════════════════════ */}
+      <div style={{
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '16px 20px', marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Info size={16} color="var(--accent)" />
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>วิธีการทำงาน</span>
         </div>
-        <button
-          onClick={() => openEditForm()}
-          className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-        >
-          + เพิ่ม Setting
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {[
+            { step: '1', icon: '🔗', title: 'สมาชิกสร้างลิงก์', desc: 'แชร์ลิงก์ชวนเพื่อน' },
+            { step: '2', icon: '👤', title: 'เพื่อนสมัคร', desc: 'สมัครผ่านลิงก์' },
+            { step: '3', icon: '🎰', title: 'เพื่อนแทงหวย', desc: 'แทง 100 บาท' },
+            { step: '4', icon: '💰', title: 'ได้ค่าคอม', desc: `${defaultSetting?.commission_rate || '0.5'}% = ${((defaultSetting?.commission_rate || 0.5) * 100 / 100).toFixed(1)} บาท` },
+          ].map(item => (
+            <div key={item.step} style={{
+              background: 'var(--bg-base)', borderRadius: 10, padding: '12px',
+              textAlign: 'center', border: '1px solid var(--border)',
+            }}>
+              <div style={{ fontSize: 24, marginBottom: 4 }}>{item.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{item.title}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{item.desc}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 10, lineHeight: 1.6 }}>
+          * ค่าคอมคำนวณจาก <strong>ยอดเดิมพัน</strong> (ไม่ใช่แพ้/ชนะ) · คำนวณอัตโนมัติหลัง admin กรอกผล · สมาชิกถอนค่าคอมเข้า wallet ได้เอง
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+         ตั้งค่า Commission Rate
+         ══════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Percent size={16} color="var(--accent)" />
+          <span style={{ fontSize: 15, fontWeight: 700 }}>อัตราค่าคอมมิชชั่น</span>
+        </div>
+        <button className="btn btn-primary" onClick={openAddForm} style={{ height: 32, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Plus size={14} /> เพิ่ม Rate
         </button>
       </div>
 
-      {/* ── Success message ───────────────────────────────────────────────────── */}
-      {formMsg && (
-        <div className="bg-green-900/30 text-green-400 px-4 py-2 rounded-lg text-sm">
-          {formMsg}
+      {loadingSettings ? <Loading inline text="กำลังโหลด..." /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+          {/* Default rate card — เด่น */}
+          {defaultSetting && (
+            <div style={{
+              background: 'var(--bg-elevated)', border: '2px solid var(--accent)',
+              borderRadius: 12, padding: '16px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ background: 'rgba(0,229,160,0.15)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}>DEFAULT</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>ทุกประเภทหวย</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                  ถอนขั้นต่ำ ฿{defaultSetting.withdrawal_min} · {defaultSetting.withdrawal_note || '-'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)' }}>{defaultSetting.commission_rate}%</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>ของยอดเดิมพัน</div>
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => openEditForm(defaultSetting)} style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                    <Pencil size={14} color="var(--text-secondary)" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Per-lottery rates */}
+          {lotterySettings.length > 0 && (
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
+                Rate เฉพาะประเภท (override default)
+              </div>
+              {lotterySettings.map((s, i) => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderBottom: i < lotterySettings.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {s.lottery_type?.name || `Lottery #${s.lottery_type_id}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-success)' }}>{s.commission_rate}%</span>
+                    <button onClick={() => openEditForm(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                      <Pencil size={13} color="var(--text-tertiary)" />
+                    </button>
+                    <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                      <Trash2 size={13} color="var(--status-error)" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {settings.length === 0 && (
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13, border: '1px dashed var(--border)' }}>
+              ยังไม่มี rate — กดปุ่ม "เพิ่ม Rate" เพื่อเริ่มต้น
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Section 1: Commission Settings ───────────────────────────────────── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">อัตราค่าคอมมิชชั่น</h2>
-        <div className="bg-gray-800 rounded-xl overflow-hidden">
-          {loadingSettings ? (
-            <Loading inline text="กำลังโหลด..." />
-          ) : settings.length === 0 ? (
-            <div className="p-6 text-gray-500 text-sm text-center">ยังไม่มี setting — กดปุ่ม "เพิ่ม Setting"</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-700/60">
-                <tr>
-                  <th className="px-5 py-3 text-left text-gray-300 font-medium">ประเภทหวย</th>
-                  <th className="px-5 py-3 text-right text-gray-300 font-medium">Rate (%)</th>
-                  <th className="px-5 py-3 text-right text-gray-300 font-medium">ถอนขั้นต่ำ (฿)</th>
-                  <th className="px-5 py-3 text-left text-gray-300 font-medium">หมายเหตุ</th>
-                  <th className="px-5 py-3 text-center text-gray-300 font-medium">สถานะ</th>
-                  <th className="px-5 py-3"></th>
+      {/* ══════════════════════════════════════════════════════════════
+         รายงาน Commission
+         ══════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <FileText size={16} color="var(--accent)" />
+        <span style={{ fontSize: 15, fontWeight: 700 }}>รายงาน Commission</span>
+      </div>
+
+      <div className="card-surface" style={{ padding: 0 }}>
+        {loadingReport ? <Loading inline text="กำลังโหลด..." /> : report.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
+            ยังไม่มีข้อมูล commission — ค่าคอมจะเริ่มคำนวณเมื่อ admin กรอกผลหวย
+          </div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ผู้แนะนำ</th>
+                <th style={{ textAlign: 'center' }}>ชวนได้</th>
+                <th style={{ textAlign: 'right' }}>ค่าคอมรวม</th>
+                <th style={{ textAlign: 'right' }}>รอถอน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.map(row => (
+                <tr key={row.member_id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{row.username}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>ID: {row.member_id}</div>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Users size={12} /> {row.total_referred} คน
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--status-success)' }}>
+                    ฿{row.total_commission.toFixed(2)}
+                  </td>
+                  <td style={{ textAlign: 'right', color: '#FF9F0A', fontWeight: 600 }}>
+                    ฿{row.pending_commission.toFixed(2)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700/50">
-                {settings.map(s => (
-                  <tr key={s.id} className="hover:bg-gray-700/30 transition-colors">
-                    {/* ประเภทหวย — null = default ใช้กับทุกประเภท */}
-                    <td className="px-5 py-3 text-white">
-                      {s.lottery_type_id === null ? (
-                        <span className="bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded text-xs font-medium">
-                          Default (ทุกประเภท)
-                        </span>
-                      ) : (
-                        s.lottery_type?.name || `ID: ${s.lottery_type_id}`
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className="text-green-400 font-semibold">{s.commission_rate}%</span>
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-300">
-                      ฿{s.withdrawal_min.toFixed(2)}
-                    </td>
-                    <td className="px-5 py-3 text-gray-400 text-xs max-w-xs truncate">
-                      {s.withdrawal_note || '—'}
-                    </td>
-                    <td className="px-5 py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        s.status === 'active'
-                          ? 'bg-green-900/40 text-green-400'
-                          : 'bg-gray-700 text-gray-500'
-                      }`}>
-                        {s.status === 'active' ? 'เปิดใช้' : 'ปิด'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => openEditForm(s)}
-                          className="text-blue-400 hover:text-blue-300 text-xs"
-                        >
-                          แก้ไข
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          className="text-red-400 hover:text-red-300 text-xs"
-                        >
-                          ลบ
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-      {/* ── Modal: Add/Edit Form ──────────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════
+         Modal: เพิ่ม/แก้ไข Rate
+         ══════════════════════════════════════════════════════════════ */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md space-y-4">
-            <h3 className="text-white font-semibold text-lg">ตั้งค่า Commission</h3>
-
-            {/* ประเภทหวย */}
-            <div>
-              <label className="text-gray-400 text-sm block mb-1">ประเภทหวย</label>
-              <select
-                value={formLotteryTypeId}
-                onChange={e => setFormLotteryTypeId(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="">Default (ใช้กับทุกประเภทหวย)</option>
-                {lotteryTypes.map(lt => (
-                  <option key={lt.id} value={String(lt.id)}>{lt.name}</option>
-                ))}
-              </select>
-              <p className="text-gray-500 text-xs mt-1">
-                Rate เฉพาะประเภท จะ override Default rate
-              </p>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, maxWidth: 420, width: '100%' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+              {editingId ? 'แก้ไข Commission Rate' : 'เพิ่ม Commission Rate'}
             </div>
 
-            {/* Commission Rate */}
-            <div>
-              <label className="text-gray-400 text-sm block mb-1">
-                Commission Rate (%) <span className="text-gray-500">เช่น 0.5 = 0.5% ของยอดเดิมพัน</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={formRate}
-                onChange={e => setFormRate(e.target.value)}
-                placeholder="เช่น 0.5"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm"
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* ประเภทหวย */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>ประเภทหวย</div>
+                <select className="input" value={formLotteryTypeId} onChange={e => setFormLotteryTypeId(e.target.value)}>
+                  <option value="">Default (ใช้กับทุกประเภท)</option>
+                  {lotteryTypes.map(lt => <option key={lt.id} value={String(lt.id)}>{lt.name}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Rate เฉพาะประเภท จะ override Default rate
+                </div>
+              </div>
+
+              {/* Commission Rate */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>Commission Rate (%)</div>
+                <input className="input" type="number" min="0" max="100" step="0.1" value={formRate} onChange={e => setFormRate(e.target.value)} placeholder="เช่น 0.5" />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  เช่น 0.5 = สมาชิกแทง 1,000 บาท → ผู้แนะนำได้ 5 บาท
+                </div>
+              </div>
+
+              {/* ถอนขั้นต่ำ */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>ยอดถอนค่าคอมขั้นต่ำ (฿)</div>
+                <input className="input" type="number" min="0" value={formWithdrawMin} onChange={e => setFormWithdrawMin(e.target.value)} />
+              </div>
+
+              {/* หมายเหตุ */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>หมายเหตุ (แสดงให้สมาชิกเห็น)</div>
+                <input className="input" type="text" value={formWithdrawNote} onChange={e => setFormWithdrawNote(e.target.value)} placeholder="เช่น ถอนขั้นต่ำ 1 บาท" />
+              </div>
             </div>
 
-            {/* Withdrawal Min */}
-            <div>
-              <label className="text-gray-400 text-sm block mb-1">ยอดถอนขั้นต่ำ (฿)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={formWithdrawMin}
-                onChange={e => setFormWithdrawMin(e.target.value)}
-                placeholder="เช่น 1"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm"
-              />
-            </div>
-
-            {/* Withdrawal Note */}
-            <div>
-              <label className="text-gray-400 text-sm block mb-1">หมายเหตุเงื่อนไขการถอน</label>
-              <textarea
-                value={formWithdrawNote}
-                onChange={e => setFormWithdrawNote(e.target.value)}
-                rows={2}
-                placeholder="แสดงให้ member เห็นในหน้า referral"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm resize-none"
-              />
-            </div>
-
-            {formErr && <p className="text-red-400 text-sm">{formErr}</p>}
-
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => setShowForm(false)}
-                className="flex-1 bg-gray-700 text-gray-300 py-2.5 rounded-xl text-sm"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={formSaving}
-                className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
-              >
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button className="btn btn-secondary" style={{ flex: 1, height: 38 }} onClick={() => setShowForm(false)}>ยกเลิก</button>
+              <button className="btn btn-primary" style={{ flex: 1, height: 38, fontWeight: 600 }} onClick={handleSave} disabled={formSaving}>
                 {formSaving ? 'กำลังบันทึก...' : 'บันทึก'}
               </button>
             </div>
@@ -338,55 +332,7 @@ export default function AffiliatePage() {
         </div>
       )}
 
-      {/* ── Section 2: Commission Report ─────────────────────────────────────── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">รายงาน Commission</h2>
-        <div className="bg-gray-800 rounded-xl overflow-hidden">
-          {loadingReport ? (
-            <Loading inline text="กำลังโหลด..." />
-          ) : report.length === 0 ? (
-            <div className="p-6 text-gray-500 text-sm text-center">ยังไม่มีข้อมูล commission</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-700/60">
-                <tr>
-                  <th className="px-5 py-3 text-left text-gray-300 font-medium">ผู้แนะนำ</th>
-                  <th className="px-5 py-3 text-right text-gray-300 font-medium">จำนวนที่แนะนำ</th>
-                  <th className="px-5 py-3 text-right text-gray-300 font-medium">ค่าคอมรวม (฿)</th>
-                  <th className="px-5 py-3 text-right text-gray-300 font-medium">รอจ่าย (฿)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700/50">
-                {report.map(row => (
-                  <tr key={row.member_id} className="hover:bg-gray-700/30 transition-colors">
-                    <td className="px-5 py-3">
-                      <a href={`/members/${row.member_id}`} target="_blank" rel="noopener" className="text-white font-medium hover:underline">{row.username}</a>
-                      <div className="text-gray-500 text-xs">ID: {row.member_id}</div>
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-300">{row.total_referred} คน</td>
-                    <td className="px-5 py-3 text-right text-green-400 font-semibold">
-                      ฿{row.total_commission.toFixed(2)}
-                    </td>
-                    <td className="px-5 py-3 text-right text-yellow-400">
-                      ฿{row.pending_commission.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* ── Pagination — แบ่งหน้าตาราง commission report ──────────────── */}
-          {reportTotal > PER_PAGE && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, paddingBottom: 16 }}>
-              <button onClick={() => setReportPage(p => Math.max(1, p-1))} disabled={reportPage === 1} className="btn btn-secondary">← ก่อนหน้า</button>
-              <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {reportPage} / {Math.ceil(reportTotal / PER_PAGE)}</span>
-              <button onClick={() => setReportPage(p => p+1)} disabled={report.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
-            </div>
-          )}
-        </div>
-      </section>
-
+      {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </div>
   )
 }
