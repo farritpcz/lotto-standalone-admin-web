@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { agentThemeApi } from '@/lib/api'
 import { useToast } from '@/components/Toast'
-import { Save, RotateCcw, Eye } from 'lucide-react'
+import { Save, RotateCcw, Eye, Shuffle } from 'lucide-react'
 
 interface ThemeColors {
   theme_primary_color: string
@@ -81,6 +81,27 @@ export default function ThemeTab() {
 
   const handleReset = () => { setColors({ ...original }); toast.success('รีเซ็ตเป็นค่าที่บันทึกล่าสุด') }
   const applyPreset = (p: typeof PRESETS[number]) => { setColors({ ...p.colors }); toast.success(`ใช้ธีม ${p.name}`) }
+
+  const randomTheme = () => {
+    const hue = Math.floor(Math.random() * 360)
+    const hsl = (h: number, s: number, l: number) => {
+      const a = s * Math.min(l, 1 - l)
+      const f = (n: number) => { const k = (n + h / 30) % 12; return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1) }
+      const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
+      return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4))
+    }
+    setColors({
+      theme_primary_color: hsl(hue, 0.7, 0.55),
+      theme_secondary_color: hsl(hue, 0.6, 0.65),
+      theme_bg_color: hsl(hue, 0.15, 0.04),
+      theme_accent_color: hsl((hue + 30) % 360, 0.6, 0.65),
+      theme_card_gradient1: hsl(hue, 0.4, 0.15),
+      theme_card_gradient2: hsl(hue, 0.5, 0.25),
+      theme_nav_bg: hsl(hue, 0.3, 0.08),
+      theme_header_bg: hsl(hue, 0.4, 0.15),
+    })
+    toast.success('สุ่มสีใหม่แล้ว')
+  }
   const hasChanges = JSON.stringify(colors) !== JSON.stringify(original)
 
   return (
@@ -89,6 +110,19 @@ export default function ThemeTab() {
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>Presets</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={randomTheme}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 16px', borderRadius: 10,
+              background: 'linear-gradient(135deg, #1e1e2e, #2a2a3a)', border: '1px solid var(--border)',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <Shuffle size={14} />
+            Random
+          </button>
           {PRESETS.map(preset => (
             <button
               key={preset.name}
