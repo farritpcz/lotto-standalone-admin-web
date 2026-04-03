@@ -161,17 +161,15 @@ export default function DepositWithdrawSettingsPage() {
               <Shield size={14} color="var(--accent)" />
               <span style={{ fontSize: 13, fontWeight: 600 }}>อนุมัติอัตโนมัติ</span>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}>
               <input type="checkbox" checked={s.auto_approve_deposit === 'true'} onChange={() => toggle('auto_approve_deposit')} style={{ accentColor: 'var(--accent)' }} />
               เปิดอนุมัติอัตโนมัติ
             </label>
-            {s.auto_approve_deposit === 'true' && (
-              <div>
-                <div style={labelStyle}>อนุมัติอัตโนมัติไม่เกิน (บาท)</div>
-                <input type="number" className={inputStyle} value={s.auto_approve_deposit_max} onChange={e => u('auto_approve_deposit_max', e.target.value)} min={0} />
-                <div style={hintStyle}>ยอดเกินจำนวนนี้ต้องรอแอดมินอนุมัติ</div>
-              </div>
-            )}
+            <div>
+              <div style={labelStyle}>อนุมัติอัตโนมัติเฉพาะยอดไม่เกิน (บาท)</div>
+              <input type="number" className={inputStyle} value={s.auto_approve_deposit_max} onChange={e => u('auto_approve_deposit_max', e.target.value)} min={0} />
+              <div style={hintStyle}>ยอดฝาก ≤ {Number(s.auto_approve_deposit_max).toLocaleString()} บาท → อนุมัติทันที · ยอดเกิน → รอแอดมินตรวจสอบ · 0 = อนุมัติทุกยอด</div>
+            </div>
           </div>
 
           {/* ช่วงเวลา */}
@@ -282,23 +280,22 @@ export default function DepositWithdrawSettingsPage() {
               <Shield size={14} color="var(--accent)" />
               <span style={{ fontSize: 13, fontWeight: 600 }}>อนุมัติอัตโนมัติ</span>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}>
               <input type="checkbox" checked={s.auto_approve_withdraw === 'true'} onChange={() => toggle('auto_approve_withdraw')} style={{ accentColor: 'var(--accent)' }} />
               เปิดอนุมัติอัตโนมัติ
             </label>
-            {s.auto_approve_withdraw === 'true' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <div style={labelStyle}>อนุมัติไม่เกิน (บาท)</div>
-                  <input type="number" className={inputStyle} value={s.auto_approve_withdraw_max} onChange={e => u('auto_approve_withdraw_max', e.target.value)} min={0} />
-                </div>
-                <div>
-                  <div style={labelStyle}>รอดำเนินการ (นาที)</div>
-                  <input type="number" className={inputStyle} value={s.withdraw_hold_minutes} onChange={e => u('withdraw_hold_minutes', e.target.value)} min={0} />
-                  <div style={hintStyle}>0 = ไม่รอ ดำเนินการทันที</div>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={labelStyle}>อนุมัติอัตโนมัติเฉพาะยอดไม่เกิน (บาท)</div>
+                <input type="number" className={inputStyle} value={s.auto_approve_withdraw_max} onChange={e => u('auto_approve_withdraw_max', e.target.value)} min={0} />
+                <div style={hintStyle}>ยอดถอน ≤ {Number(s.auto_approve_withdraw_max).toLocaleString()} → อนุมัติทันที · 0 = ทุกยอด</div>
               </div>
-            )}
+              <div>
+                <div style={labelStyle}>รอดำเนินการ (นาที)</div>
+                <input type="number" className={inputStyle} value={s.withdraw_hold_minutes} onChange={e => u('withdraw_hold_minutes', e.target.value)} min={0} />
+                <div style={hintStyle}>0 = ไม่รอ ดำเนินการทันที</div>
+              </div>
+            </div>
           </div>
 
           {/* ช่วงเวลา */}
