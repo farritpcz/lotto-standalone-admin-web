@@ -197,7 +197,7 @@ export const affiliateApi = {
 export interface AffiliateSetting {
   id: number
   agent_id: number
-  lottery_type_id: number | null      // null = default ทุกประเภทหวย
+  lottery_type_id: number | null | undefined  // null/undefined = default ทุกประเภทหวย
   commission_rate: number             // % เช่น 0.5 = 0.5%
   withdrawal_min: number
   withdrawal_note: string

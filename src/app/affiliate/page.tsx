@@ -100,8 +100,9 @@ export default function AffiliatePage() {
   }
 
   // ── Helpers ──
-  const defaultSetting = settings.find(s => s.lottery_type_id === null)
-  const lotterySettings = settings.filter(s => s.lottery_type_id !== null)
+  // ⭐ lottery_type_id อาจเป็น null หรือ undefined (Go omitempty ไม่ส่ง field ถ้า nil)
+  const defaultSetting = settings.find(s => s.lottery_type_id == null)
+  const lotterySettings = settings.filter(s => s.lottery_type_id != null)
 
   return (
     <div className="page-container">
