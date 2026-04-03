@@ -191,6 +191,27 @@ export const affiliateApi = {
 
   /** รายงาน commission: referrer ทุกคน + ยอดรวม + ยอด pending */
   getReport: (params?: Record<string, unknown>) => api.get('/affiliate/report', { params }),
+
+  // ── Share Templates CRUD — ข้อความแชร์สำเร็จรูป ──
+  /** ดึง share template ทั้งหมด */
+  getShareTemplates: () => api.get('/affiliate/share-templates'),
+  /** สร้าง share template ใหม่ */
+  createShareTemplate: (data: { name: string; content: string; platform?: string; sort_order?: number }) =>
+    api.post('/affiliate/share-templates', data),
+  /** อัพเดท share template (partial update) */
+  updateShareTemplate: (id: number, data: Record<string, unknown>) =>
+    api.put(`/affiliate/share-templates/${id}`, data),
+  /** ลบ share template (soft delete) */
+  deleteShareTemplate: (id: number) =>
+    api.delete(`/affiliate/share-templates/${id}`),
+
+  // ── Commission Adjustments — ปรับค่าคอมมิชชั่น ──
+  /** ดึงรายการปรับค่าคอม (filter by member_id, paginated) */
+  getAdjustments: (params?: { member_id?: number; page?: number; per_page?: number }) =>
+    api.get('/affiliate/adjustments', { params }),
+  /** สร้างรายการปรับค่าคอม (เพิ่ม/หัก/ยกเลิก) */
+  createAdjustment: (data: { member_id: number; type: 'add' | 'deduct' | 'cancel'; amount: number; reason: string; commission_id?: number }) =>
+    api.post('/affiliate/adjustments', data),
 }
 
 // TypeScript types สำหรับ affiliate
@@ -211,6 +232,34 @@ export interface AffiliateReportRow {
   total_referred: number
   total_commission: number
   pending_commission: number
+}
+
+// ⭐ Share Template — ข้อความแชร์สำเร็จรูป (line/facebook/telegram)
+export interface ShareTemplate {
+  id: number
+  agent_id: number
+  name: string
+  content: string
+  platform: string          // 'all' | 'line' | 'facebook' | 'telegram'
+  sort_order: number
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+// ⭐ Commission Adjustment — ปรับค่าคอม (เพิ่ม/หัก/ยกเลิก)
+export interface CommissionAdjustment {
+  id: number
+  agent_id: number
+  member_id: number
+  admin_id: number
+  type: 'add' | 'deduct' | 'cancel'
+  amount: number
+  reason: string
+  commission_id?: number
+  created_at: string
+  member?: { id: number; username: string }
+  admin?: { id: number; username: string }
 }
 
 // =============================================================================

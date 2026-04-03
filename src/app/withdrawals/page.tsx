@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { withdrawApi, api } from '@/lib/api'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import BankIcon from '@/components/BankIcon'
 
 /* ── Status config ────────────────────────────────────────────────────── */
 const statusMap: Record<string, { cls: string; label: string }> = {
@@ -150,7 +151,13 @@ export default function WithdrawalsPage() {
                       </a>
                     </td>
                     <td className="mono" style={{ textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>{fmtMoney(row.amount)}</td>
-                    <td className="secondary" style={{ fontSize: 12 }}>{row.bank_code || '—'}</td>
+                    {/* ไอคอนธนาคาร */}
+                    <td className="secondary" style={{ fontSize: 12 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        {row.bank_code && <BankIcon code={row.bank_code} size={20} />}
+                        {row.bank_code || '—'}
+                      </span>
+                    </td>
                     <td className="mono secondary" style={{ fontSize: 12 }}>{row.bank_account_number || '—'}</td>
                     <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
                     <td className="secondary" style={{ fontSize: 12 }}>{fmtDate(row.created_at)}</td>
@@ -211,7 +218,11 @@ export default function WithdrawalsPage() {
             {/* ข้อมูลบัญชีธนาคาร */}
             <div style={{ marginTop: 16, background: 'var(--bg-elevated)', borderRadius: 8, padding: 14 }}>
               <div className="label" style={{ marginBottom: 8 }}>บัญชีปลายทาง</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{selectedRow.bank_code || '—'}</div>
+              {/* ไอคอนธนาคาร + ชื่อ ใน modal */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                {selectedRow.bank_code && <BankIcon code={selectedRow.bank_code} size={24} />}
+                {selectedRow.bank_code || '—'}
+              </div>
               <div className="mono" style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1, color: 'var(--accent)', marginTop: 2 }}>{selectedRow.bank_account_number || '—'}</div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{selectedRow.bank_account_name || '—'}</div>
             </div>
@@ -239,7 +250,10 @@ export default function WithdrawalsPage() {
             <div style={{ fontSize: 40, marginBottom: 12 }}>💸</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--status-success)', marginBottom: 8 }}>อนุมัติถอนเงิน</div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>{fmtId(approveModal.id)} — {fmtMoney(approveModal.amount)}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>→ {approveModal.bank_code} {approveModal.bank_account_number}</div>
+            {/* ไอคอนธนาคาร + เลขบัญชีปลายทาง */}
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              → {approveModal.bank_code && <BankIcon code={approveModal.bank_code} size={20} />} {approveModal.bank_code} {approveModal.bank_account_number}
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               <button onClick={() => doApprove(approveModal, 'auto')} className="btn btn-primary" style={{ width: '100%', height: 40 }}>

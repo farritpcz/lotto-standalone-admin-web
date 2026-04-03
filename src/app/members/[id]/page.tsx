@@ -29,6 +29,7 @@ import { useParams } from 'next/navigation'
 import { memberMgmtApi, txMgmtApi, betMgmtApi } from '@/lib/api'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import BankIcon from '@/components/BankIcon'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล
@@ -498,7 +499,14 @@ export default function MemberDetailPage() {
             <div className="card-surface" style={{ padding: 20 }}>
               <p className="label" style={{ marginBottom: 14 }}>ข้อมูลธนาคาร</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <InfoRow label="ธนาคาร" value={member.bank_code || '---'} />
+                {/* ไอคอนธนาคาร + bank_code */}
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 2 }}>ธนาคาร</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+                    {member.bank_code && <BankIcon code={member.bank_code} size={28} />}
+                    {member.bank_code || '---'}
+                  </span>
+                </div>
                 <InfoRow label="เลขบัญชี" value={member.bank_account_number || '---'} mono />
                 <InfoRow label="ชื่อบัญชี" value={member.bank_account_name || '---'} />
               </div>

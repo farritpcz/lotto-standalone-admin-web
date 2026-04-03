@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import Loading from '@/components/Loading'
+import BankIcon from '@/components/BankIcon'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลบัญชีธนาคาร + ตั้งค่าฝาก/ถอน
@@ -157,7 +158,7 @@ export default function BankAccountsPage() {
    */
   const openAddModal = () => {
     setEditingId(null)
-    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false, rkauto_token1: '', rkauto_token2: '' })
+    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit', transfer_mode: 'manual', bank_system: '', rkauto_token1: '', rkauto_token2: '' })
     setShowModal(true)
   }
 
@@ -172,6 +173,11 @@ export default function BankAccountsPage() {
       account_number: acc.account_number,
       account_name: acc.account_name,
       is_default: acc.is_default,
+      account_type: (acc.account_type as 'deposit' | 'withdraw') || 'deposit',
+      transfer_mode: (acc.transfer_mode as 'manual' | 'auto') || 'manual',
+      bank_system: acc.bank_system || '',
+      rkauto_token1: '',
+      rkauto_token2: '',
     })
     setShowModal(true)
   }
@@ -390,11 +396,9 @@ export default function BankAccountsPage() {
                 <tr key={acc.id}>
                   {/* ธนาคาร — แสดง badge สีธนาคาร */}
                   <td>
+                    {/* ไอคอนธนาคาร + ชื่อ */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: getBankColor(acc.bank_code), flexShrink: 0,
-                      }} />
+                      <BankIcon code={acc.bank_code} size={22} />
                       <span style={{ fontWeight: 500 }}>{acc.bank_code}</span>
                       <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                         {getBankName(acc.bank_code)}

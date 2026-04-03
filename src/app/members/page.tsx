@@ -22,6 +22,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { memberMgmtApi } from '@/lib/api'
 import Loading from '@/components/Loading'
+import BankIcon from '@/components/BankIcon'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลสมาชิก
@@ -420,7 +421,14 @@ export default function MembersPage() {
                     gridTemplateColumns: '1fr 1fr',
                     gap: '10px 16px',
                   }}>
-                    <DetailField label="ธนาคาร" value={selectedMember.bank_code || '—'} />
+                    {/* ไอคอนธนาคาร + bank_code */}
+                    <div>
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 2 }}>ธนาคาร</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+                        {selectedMember.bank_code && <BankIcon code={selectedMember.bank_code} size={24} />}
+                        {selectedMember.bank_code || '—'}
+                      </span>
+                    </div>
                     <DetailField label="เลขบัญชี" value={selectedMember.bank_account_number || '—'} mono />
                     <DetailField label="ชื่อบัญชี" value={selectedMember.bank_account_name || '—'} />
                   </div>

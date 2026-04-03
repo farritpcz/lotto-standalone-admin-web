@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { DashboardSkeleton } from '@/components/Loading'
+import BankIcon from '@/components/BankIcon'
 import {
   TrendingUp, TrendingDown, Users, DollarSign, ArrowDownToLine, ArrowUpFromLine,
   CreditCard, Activity, UserPlus, Wallet, Ban, RefreshCw
@@ -276,7 +277,8 @@ export default function DashboardPage() {
                 <YAxis tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
                   contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [fmtShort(v), '']}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={((v: any) => [fmtShort(Number(v || 0)), '']) as any}
                   labelFormatter={l => `วันที่ ${l}`}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -303,8 +305,12 @@ export default function DashboardPage() {
             </div>
           ) : data.bank_accounts.map(ba => (
             <div key={ba.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-              <div style={{ fontWeight: 600 }}>{ba.bank_name || ba.bank_code}</div>
-              <div className="mono" style={{ color: 'var(--text-secondary)' }}>{ba.account_number} · {ba.account_name}</div>
+              {/* ไอคอนธนาคาร + ชื่อ */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                <BankIcon code={ba.bank_code} size={22} />
+                {ba.bank_name || ba.bank_code}
+              </div>
+              <div className="mono" style={{ color: 'var(--text-secondary)', marginLeft: 30 }}>{ba.account_number} · {ba.account_name}</div>
             </div>
           ))}
         </div>

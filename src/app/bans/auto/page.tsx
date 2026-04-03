@@ -182,56 +182,56 @@ export default function AutoBanPage() {
       // ⭐ 8 ระดับขั้นบันได — กระจายการลดเรท 6 ขั้น
       // ระดับ 1: จำกัดยอดต่อคน — ที่ 40%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.4),
         action: 'max_amount', reducedRate: 0,
         label: 'จำกัดยอด (40%)',
       })
       // ระดับ 2: ลดเรท 10% — ที่ 50%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.5),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.9),
         label: 'ลดเรท 10% (50%)',
       })
       // ระดับ 3: ลดเรท 20% — ที่ 60%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.6),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.8),
         label: 'ลดเรท 20% (60%)',
       })
       // ระดับ 4: ลดเรท 35% — ที่ 70%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.7),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.65),
         label: 'ลดเรท 35% (70%)',
       })
       // ระดับ 5: ลดเรท 50% — ที่ 80%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.8),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.5),
         label: 'ลดเรท 50% (80%)',
       })
       // ระดับ 6: ลดเรท 65% — ที่ 88%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.88),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.35),
         label: 'ลดเรท 65% (88%)',
       })
       // ระดับ 7: ลดเรท 80% — ที่ 95%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: Math.floor(fullThreshold * 0.95),
         action: 'reduce_rate', reducedRate: Math.floor(r.rate * 0.2),
         label: 'ลดเรท 80% (95%)',
       })
       // ระดับ 8: อั้นเต็ม — ที่ 100%
       calculated.push({
-        betType: r.betType, // code เช่น 3TOP, 2TOP rate: r.rate,
+        betType: r.betType, rate: r.rate, // code เช่น 3TOP, 2TOP
         threshold: fullThreshold,
         action: 'full_ban', reducedRate: 0,
         label: 'อั้นเต็ม (100%)',

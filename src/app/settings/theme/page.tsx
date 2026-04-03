@@ -139,7 +139,7 @@ export default function ThemeSettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await agentThemeApi.update(colors)
+      await agentThemeApi.update(colors as unknown as Record<string, string>)
       setOriginal({ ...colors })
       setVersion(v => v + 1)
       toast.success('บันทึกธีมสำเร็จ — หน้าบ้านจะเห็นสีใหม่ทันที')
