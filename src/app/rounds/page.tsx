@@ -82,6 +82,7 @@ const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
   open:     { badge: 'badge-success', label: 'เปิดรับแทง' },
   closed:   { badge: 'badge-warning', label: 'ปิดรับแทง' },
   resulted: { badge: 'badge-info',    label: 'ออกผลแล้ว' },
+  voided:   { badge: 'badge-error',   label: 'ยกเลิกแล้ว' },
 }
 
 /** ตัวเลือก filter สถานะ (รวม "ทั้งหมด") */
@@ -91,6 +92,7 @@ const STATUS_FILTERS = [
   { value: 'open', label: 'เปิดรับแทง' },
   { value: 'closed', label: 'ปิดรับแทง' },
   { value: 'resulted', label: 'ออกผลแล้ว' },
+  { value: 'voided', label: 'ยกเลิกแล้ว' },
 ]
 
 /** ค่าเริ่มต้นของ form (ว่างเปล่า) */
@@ -214,10 +216,32 @@ export default function RoundsPage() {
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
-          await roundMgmtApi.updateStatus(id, newStatus)
+          // ⭐ ใช้ manual open/close API แทน generic updateStatus
+          if (newStatus === 'open') await roundMgmtApi.manualOpen(id)
+          else if (newStatus === 'closed') await roundMgmtApi.manualClose(id)
+          else await roundMgmtApi.updateStatus(id, newStatus)
           await loadRounds()
         } catch {
           alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ')
+        }
+      },
+    })
+  }
+
+  /** ยกเลิกรอบ + refund ทุก bet */
+  const handleVoidRound = (id: number) => {
+    setConfirmDialog({
+      title: 'ยกเลิกรอบหวย',
+      message: `ยืนยันยกเลิกรอบ #${id}?\n\n⚠️ การดำเนินการนี้จะ:\n- คืนเงินเดิมพันทุกรายการ\n- หักเงินรางวัลที่จ่ายแล้ว (ถ้ามี)\n- ไม่สามารถกลับคืนได้`,
+      type: 'danger',
+      confirmLabel: 'ยกเลิกรอบ',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await roundMgmtApi.voidRound(id, 'ยกเลิกโดยแอดมิน')
+          await loadRounds()
+        } catch {
+          alert('เกิดข้อผิดพลาด')
         }
       },
     })
@@ -441,9 +465,19 @@ export default function RoundsPage() {
                           ปิดรับแทง
                         </button>
                       )}
-                      {/* closed / resulted → ไม่มี action */}
-                      {(r.status === 'closed' || r.status === 'resulted') && (
-                        <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>—</span>
+                      {/* closed → รอกรอกผล */}
+                      {r.status === 'closed' && (
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>รอกรอกผล</span>
+                      )}
+                      {/* open / closed / resulted → ยกเลิกได้ */}
+                      {['open', 'closed', 'resulted'].includes(r.status) && (
+                        <button
+                          className="btn btn-ghost"
+                          style={{ color: 'var(--status-error)', fontSize: 11, marginLeft: 6 }}
+                          onClick={() => handleVoidRound(r.id)}
+                        >
+                          ยกเลิก
+                        </button>
                       )}
                     </td>
                   </tr>

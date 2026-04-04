@@ -96,6 +96,14 @@ export const roundMgmtApi = {
   list: (params?: Record<string, unknown>) => api.get('/rounds', { params }),
   create: (data: Record<string, unknown>) => api.post('/rounds', data),
   updateStatus: (id: number, status: string) => api.put(`/rounds/${id}/status`, { status }),
+  /** เปิดรับแทง manual (upcoming → open) */
+  manualOpen: (id: number) => api.put(`/rounds/${id}/open`),
+  /** ปิดรับแทง manual (open → closed) */
+  manualClose: (id: number) => api.put(`/rounds/${id}/close`),
+  /** ยกเลิกรอบ + refund ทุก bet */
+  voidRound: (id: number, reason: string) => api.put(`/rounds/${id}/void`, { reason }),
+  /** ดูตาราง schedule สร้างรอบอัตโนมัติ */
+  getSchedules: () => api.get('/rounds/schedules'),
 }
 
 // Results — ⭐ กรอกผล → trigger payout (lotto-core)
