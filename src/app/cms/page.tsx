@@ -72,16 +72,9 @@ const MOCK_BANNERS: Banner[] = [
 
 const MOCK_TICKER = '🎉 ยินดีต้อนรับสู่ LOTTO · จ่ายจริง ถอนได้จริง · สมัครวันนี้รับโบนัส 100% · หวยรัฐบาลจ่ายบาทละ 900'
 
-// ⭐ Default lottery images — รูปพื้นฐานแต่ละประเภทหวย
-const MOCK_LOTTERY_IMAGES: LotteryImage[] = [
-  { id: 1, lottery_type_code: 'THAI', lottery_type_name: 'หวยไทย (ใต้ดิน)', image_url: `${MEMBER_WEB_URL}/images/lottery/THAI.svg` },
-  { id: 2, lottery_type_code: 'LAO', lottery_type_name: 'หวยลาว', image_url: `${MEMBER_WEB_URL}/images/lottery/LAO.svg` },
-  { id: 3, lottery_type_code: 'STOCK_TH', lottery_type_name: 'หวยหุ้นไทย', image_url: `${MEMBER_WEB_URL}/images/lottery/STOCK_TH.svg` },
-  { id: 4, lottery_type_code: 'STOCK_FOREIGN', lottery_type_name: 'หวยหุ้นต่างประเทศ', image_url: `${MEMBER_WEB_URL}/images/lottery/STOCK_FOREIGN.svg` },
-  { id: 5, lottery_type_code: 'YEEKEE', lottery_type_name: 'หวยยี่กี', image_url: `${MEMBER_WEB_URL}/images/lottery/YEEKEE.svg` },
-  { id: 6, lottery_type_code: 'HANOI', lottery_type_name: 'หวยฮานอย', image_url: `${MEMBER_WEB_URL}/images/lottery/HANOI.svg` },
-  { id: 7, lottery_type_code: 'MALAY', lottery_type_name: 'หวยมาเลย์', image_url: `${MEMBER_WEB_URL}/images/lottery/MALAY.svg` },
-]
+// ⭐ Default lottery images — ไม่ hardcode, ดึงจาก API (ltTypes)
+// fallback เป็น array ว่าง ถ้า API ยังไม่พร้อม
+const MOCK_LOTTERY_IMAGES: LotteryImage[] = []
 
 // =============================================================================
 // COMPONENT — CMSPage
@@ -453,12 +446,14 @@ export default function CMSPage() {
               } catch { setMessage({ type: 'error', text: 'บันทึกไม่สำเร็จ' }) }
             }
 
-            const gradients: Record<string,string> = {
-              THAI: 'linear-gradient(135deg, #f5a623, #d4820a)',
-              LAO: 'linear-gradient(135deg, #ef4444, #dc2626)',
-              STOCK_TH: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              STOCK_FOREIGN: 'linear-gradient(135deg, #a855f7, #7c3aed)',
-              YEEKEE: 'linear-gradient(135deg, #0d6e6e, #34d399)',
+            // Category-based gradients — ไม่ hardcode lottery code
+            const categoryGradients: Record<string,string> = {
+              thai:   'linear-gradient(135deg, #f5a623, #d4820a)',
+              lao:    'linear-gradient(135deg, #ef4444, #dc2626)',
+              hanoi:  'linear-gradient(135deg, #ec4899, #be185d)',
+              malay:  'linear-gradient(135deg, #14b8a6, #0d9488)',
+              stock:  'linear-gradient(135deg, #3b82f6, #2563eb)',
+              yeekee: 'linear-gradient(135deg, #0d6e6e, #34d399)',
             }
 
             return (

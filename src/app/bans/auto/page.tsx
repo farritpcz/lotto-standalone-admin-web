@@ -53,13 +53,8 @@ const BET_TYPE_LABELS: Record<string, string> = {
   'RUN_TOP': 'วิ่งบน', 'RUN_BOT': 'วิ่งล่าง',
 }
 
-const DEFAULT_RATES: Record<string, BetTypeRate[]> = {
-  THAI:          [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '3BOTTOM', label: '3 ตัวล่าง', rate: 650 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
-  LAO:           [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '3BOTTOM', label: '3 ตัวล่าง', rate: 650 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
-  YEEKEE:        [{ betType: '3TOP', label: '3 ตัวบน', rate: 1000 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 100 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 100 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 4 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 5 }],
-  STOCK_TH:      [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
-  STOCK_FOREIGN: [{ betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 }, { betType: '2TOP', label: '2 ตัวบน', rate: 90 }, { betType: '2BOTTOM', label: '2 ตัวล่าง', rate: 90 }, { betType: 'RUN_TOP', label: 'วิ่งบน', rate: 3.2 }, { betType: 'RUN_BOT', label: 'วิ่งล่าง', rate: 4.2 }],
-}
+// ── Default rates — ไม่ hardcode lottery code, ใช้ FALLBACK_RATES เดียวกันหมด ──
+// ถ้าต้องการ rate ต่างกันต่อประเภท ควรดึงจาก API แทน
 
 const FALLBACK_RATES: BetTypeRate[] = [
   { betType: '3TOP', label: '3 ตัวบน', rate: 900 }, { betType: '3TOD', label: '3 ตัวโต๊ด', rate: 150 },
@@ -155,14 +150,9 @@ export default function AutoBanPage() {
         if (types.length > 0) setSelectedType(types[0])
       })
       .catch(() => {
-        // fallback mock
-        const mock: LotteryType[] = [
-          { id: 1, name: 'หวยไทย', code: 'THAI', status: 'active' },
-          { id: 2, name: 'หวยลาว', code: 'LAO', status: 'active' },
-          { id: 5, name: 'หวยยี่กี', code: 'YEEKEE', status: 'active' },
-        ]
-        setLotteryTypes(mock)
-        setSelectedType(mock[0])
+        // fallback — ไม่มี mock, ให้เรียก API ได้เท่านั้น
+        setLotteryTypes([])
+        setSelectedType(null)
       })
   }, [])
 
@@ -174,7 +164,7 @@ export default function AutoBanPage() {
     const maxLossNum = Number(maxLoss)
     if (!selectedType || !maxLossNum || maxLossNum <= 0) return
 
-    const rates = DEFAULT_RATES[selectedType.code] || FALLBACK_RATES
+    const rates = FALLBACK_RATES
     // ⭐ สร้าง 3 ระดับต่อ bet type: จำกัดยอด → ลดเรท → อั้นเต็ม
     const calculated: typeof previewRules = []
     for (const r of rates) {
