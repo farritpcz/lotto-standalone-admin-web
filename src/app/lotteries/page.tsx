@@ -1,30 +1,18 @@
 /**
  * =============================================================================
- * Admin — จัดการประเภทหวย (Lottery Types CRUD)
+ * Admin — จัดการประเภทหวย (Lottery Types)
  * =============================================================================
  *
- * หน้านี้ใช้จัดการประเภทหวยทั้งหมดในระบบ
- * - แสดงรายการประเภทหวยในตาราง (admin-table)
- * - เพิ่มประเภทหวยใหม่ (modal form)
- * - แก้ไขประเภทหวยที่มีอยู่ (modal form prefilled)
- * - เปลี่ยนสถานะ active/inactive (toggle)
+ * ⭐ Redesign: Card Grid จัดกลุ่มตาม category
  *
- * ใช้ Design System: Linear/Vercel dark theme
- * - .page-container, .page-header — layout
- * - .card-surface — card wrapper
- * - .admin-table — ตาราง
- * - .badge-* — status badges
- * - .btn, .btn-* — buttons
- * - .input — form inputs
+ * Layout:
+ *   - Search bar + stats summary ด้านบน
+ *   - จัดกลุ่มตาม category (หวยไทย, ยี่กี, ลาว, ฮานอย, มาเลย์, หุ้น)
+ *   - แต่ละ lottery เป็น compact card (icon + name + code + status toggle)
+ *   - Category header collapsible (หุ้น 26 ตัว → ยุบได้)
+ *   - Edit คลิกที่ card → modal
  *
- * API: lotteryMgmtApi จาก @/lib/api
- * - list() — ดึงรายการทั้งหมด
- * - create(data) — สร้างใหม่
- * - update(id, data) — แก้ไข
- *
- * ความสัมพันธ์:
- * - ข้อมูล lottery_types ถูกใช้ในหน้า rounds (เลือกประเภทหวยตอนสร้างรอบ)
- * - ข้อมูล lottery_types ถูกใช้ในหน้า rates (ตั้งอัตราจ่าย per type)
+ * API: lotteryMgmtApi.list(), .create(), .update()
  * =============================================================================
  */
 'use client'
@@ -32,436 +20,302 @@
 import { useEffect, useState, useCallback } from 'react'
 import { lotteryMgmtApi } from '@/lib/api'
 import Loading from '@/components/Loading'
+import { Search, ChevronDown, ChevronRight, Edit2, Power } from 'lucide-react'
 
 // =============================================================================
-// Types — โครงสร้างข้อมูลประเภทหวย
+// Types
 // =============================================================================
 
-/** ข้อมูลประเภทหวยจาก API */
 interface LotteryType {
-  id: number
-  name: string        // ชื่อ เช่น "หวยรัฐบาล"
-  code: string        // รหัส เช่น "GOVT"
-  category: string    // หมวด เช่น "thai", "lao", "stock"
-  status: string      // สถานะ "active" | "inactive"
-  icon: string        // emoji icon เช่น "🇹🇭"
-  description?: string // รายละเอียดเพิ่มเติม
+  id: number; name: string; code: string; category: string
+  status: string; icon: string; description?: string
 }
 
-/** ข้อมูลสำหรับ form สร้าง/แก้ไข */
 interface LotteryFormData {
-  name: string
-  code: string
-  category: string
-  icon: string
-  description: string
+  name: string; code: string; category: string; icon: string; description: string
 }
 
 // =============================================================================
-// Constants — ตัวเลือกหมวดหมู่หวย
+// Constants
 // =============================================================================
 
-/** หมวดหมู่ประเภทหวยที่รองรับ (dropdown options) */
-const CATEGORY_OPTIONS = [
-  { value: 'thai', label: 'หวยไทย' },
-  { value: 'lao', label: 'หวยลาว' },
-  { value: 'hanoi', label: 'หวยฮานอย' },
-  { value: 'stock', label: 'หวยหุ้น' },
-  { value: 'malay', label: 'หวยมาเลย์' },
-  { value: 'yeekee', label: 'หวยยี่กี' },
-  { value: 'pingpong', label: 'หวยปิงปอง' },
-  { value: 'other', label: 'อื่นๆ' },
+/** หมวดหมู่ — ใช้เป็น group headers + label mapping */
+const CATEGORIES: { key: string; label: string; color: string }[] = [
+  { key: 'thai',   label: 'หวยไทย',      color: '#f5a623' },
+  { key: 'yeekee', label: 'หวยยี่กี',    color: '#34d399' },
+  { key: 'lao',    label: 'หวยลาว',      color: '#ef4444' },
+  { key: 'hanoi',  label: 'หวยฮานอย',    color: '#ec4899' },
+  { key: 'malay',  label: 'หวยมาเลย์',   color: '#14b8a6' },
+  { key: 'stock',  label: 'หวยหุ้น',     color: '#3b82f6' },
 ]
 
-/** ค่าเริ่มต้นของ form (ว่างเปล่า) */
-const EMPTY_FORM: LotteryFormData = {
-  name: '',
-  code: '',
-  category: 'thai',
-  icon: '🎰',
-  description: '',
-}
-
-/* จำนวนรายการต่อหน้า (pagination) */
-const PER_PAGE = 20
+const EMPTY_FORM: LotteryFormData = { name: '', code: '', category: 'thai', icon: '🎰', description: '' }
 
 // =============================================================================
-// Component หลัก — LotteriesPage
+// Component
 // =============================================================================
+
 export default function LotteriesPage() {
-  // ---------------------------------------------------------------------------
-  // State — ข้อมูลและ UI state
-  // ---------------------------------------------------------------------------
-
-  /** รายการประเภทหวยทั้งหมด */
   const [types, setTypes] = useState<LotteryType[]>([])
-
-  /** กำลังโหลดข้อมูลหรือไม่ */
   const [loading, setLoading] = useState(true)
-
-  /** state สำหรับ pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด */
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-
-  /** แสดง modal form หรือไม่ */
+  const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-
-  /** ข้อมูลที่กำลังแก้ไข (null = สร้างใหม่) */
   const [editing, setEditing] = useState<LotteryType | null>(null)
-
-  /** ข้อมูลใน form */
   const [form, setForm] = useState<LotteryFormData>(EMPTY_FORM)
-
-  /** กำลัง submit form หรือไม่ (ป้องกันกดซ้ำ) */
   const [submitting, setSubmitting] = useState(false)
+  // ⭐ collapsible categories — stock ยุบได้ (26 ตัวเยอะมาก)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
-  // ---------------------------------------------------------------------------
-  // Data fetching — โหลดข้อมูลจาก API
-  // ---------------------------------------------------------------------------
-
-  /** โหลดรายการประเภทหวย — ส่ง page + per_page ไปให้ API */
+  // ── Data fetching ─────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await lotteryMgmtApi.list({ page, per_page: PER_PAGE })
-      // API อาจคืน data.data เป็น array หรือ { items, total }
+      const res = await lotteryMgmtApi.list()
       const data = res.data.data
-      if (Array.isArray(data)) {
-        setTypes(data)
-        setTotal(data.length)
-      } else {
-        setTypes(data?.items || [])
-        setTotal(data?.total || 0)
-      }
-    } catch (err) {
-      console.error('โหลดประเภทหวยไม่สำเร็จ:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [page])
+      setTypes(Array.isArray(data) ? data : data?.items || [])
+    } catch { /* silent */ } finally { setLoading(false) }
+  }, [])
 
-  /** โหลดข้อมูลครั้งแรกเมื่อ mount + เมื่อเปลี่ยนหน้า */
   useEffect(() => { loadData() }, [loadData])
 
-  // ---------------------------------------------------------------------------
-  // Modal handlers — เปิด/ปิด modal, submit form
-  // ---------------------------------------------------------------------------
+  // ── Filtered + grouped ────────────────────────────────────────
+  const filtered = search
+    ? types.filter(t => t.name.includes(search) || t.code.toLowerCase().includes(search.toLowerCase()))
+    : types
 
-  /** เปิด modal สร้างประเภทหวยใหม่ */
-  const openCreateModal = () => {
-    setEditing(null)
-    setForm(EMPTY_FORM)
-    setShowModal(true)
-  }
+  // จัดกลุ่มตาม category
+  const grouped = CATEGORIES.map(cat => ({
+    ...cat,
+    items: filtered.filter(t => t.category === cat.key),
+  })).filter(g => g.items.length > 0)
 
-  /** เปิด modal แก้ไขประเภทหวย (prefill ข้อมูลเดิม) */
-  const openEditModal = (lt: LotteryType) => {
+  // ── Stats ─────────────────────────────────────────────────────
+  const totalActive = types.filter(t => t.status === 'active').length
+  const totalInactive = types.length - totalActive
+
+  // ── Modal handlers ────────────────────────────────────────────
+  const openEdit = (lt: LotteryType) => {
     setEditing(lt)
-    setForm({
-      name: lt.name,
-      code: lt.code,
-      category: lt.category,
-      icon: lt.icon,
-      description: lt.description || '',
-    })
+    setForm({ name: lt.name, code: lt.code, category: lt.category, icon: lt.icon, description: lt.description || '' })
     setShowModal(true)
   }
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setShowModal(true) }
+  const closeModal = () => { setShowModal(false); setEditing(null) }
 
-  /** ปิด modal และ reset form */
-  const closeModal = () => {
-    setShowModal(false)
-    setEditing(null)
-    setForm(EMPTY_FORM)
-  }
-
-  /** Submit form — สร้างใหม่ หรือ อัพเดท */
   const handleSubmit = async () => {
-    // ตรวจสอบข้อมูลจำเป็น
     if (!form.name.trim() || !form.code.trim()) return
-
     try {
       setSubmitting(true)
-
-      if (editing) {
-        // === แก้ไข (update) ===
-        await lotteryMgmtApi.update(editing.id, { ...form })
-      } else {
-        // === สร้างใหม่ (create) ===
-        await lotteryMgmtApi.create({ ...form })
-      }
-
-      // สำเร็จ → ปิด modal + reload ข้อมูล
-      closeModal()
-      await loadData()
-    } catch (err) {
-      console.error('บันทึกไม่สำเร็จ:', err)
-      alert('เกิดข้อผิดพลาดในการบันทึก')
-    } finally {
-      setSubmitting(false)
-    }
+      if (editing) await lotteryMgmtApi.update(editing.id, form)
+      else await lotteryMgmtApi.create(form)
+      closeModal(); await loadData()
+    } catch { /* silent */ } finally { setSubmitting(false) }
   }
 
-  // ---------------------------------------------------------------------------
-  // Status toggle — สลับ active/inactive
-  // ---------------------------------------------------------------------------
-
-  /** สลับสถานะ active ↔ inactive */
   const toggleStatus = async (lt: LotteryType) => {
-    const newStatus = lt.status === 'active' ? 'inactive' : 'active'
     try {
-      await lotteryMgmtApi.update(lt.id, { status: newStatus })
+      await lotteryMgmtApi.update(lt.id, { status: lt.status === 'active' ? 'inactive' : 'active' })
       await loadData()
-    } catch (err) {
-      console.error('เปลี่ยนสถานะไม่สำเร็จ:', err)
-    }
+    } catch { /* silent */ }
   }
 
-  // ---------------------------------------------------------------------------
-  // Render — แสดงผลหน้าจอ
-  // ---------------------------------------------------------------------------
+  const toggleCollapse = (key: string) => setCollapsed(p => ({ ...p, [key]: !p[key] }))
+
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="page-container">
-      {/* ====== Page header — ชื่อหน้า + ปุ่มเพิ่ม ====== */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className="page-header">
-        <h1>จัดการประเภทหวย</h1>
-        <button className="btn btn-primary" onClick={openCreateModal}>
-          + เพิ่มประเภทหวย
-        </button>
-      </div>
-
-      {/* ====== สรุปจำนวน (stat cards) ====== */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-        {/* จำนวนทั้งหมด */}
-        <div className="stat-card">
-          <div className="label" style={{ marginBottom: '4px' }}>ทั้งหมด</div>
-          <div className="metric">{types.length}</div>
-        </div>
-        {/* จำนวนที่ active */}
-        <div className="stat-card">
-          <div className="label" style={{ marginBottom: '4px' }}>เปิดใช้งาน</div>
-          <div className="metric" style={{ color: 'var(--status-success)' }}>
-            {types.filter(t => t.status === 'active').length}
+        <div>
+          <h1>ประเภทหวย</h1>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {types.length} ประเภท — เปิด {totalActive} / ปิด {totalInactive}
           </div>
         </div>
-        {/* จำนวนที่ inactive */}
-        <div className="stat-card">
-          <div className="label" style={{ marginBottom: '4px' }}>ปิดใช้งาน</div>
-          <div className="metric" style={{ color: 'var(--text-secondary)' }}>
-            {types.filter(t => t.status !== 'active').length}
-          </div>
+        <button className="btn btn-primary" onClick={openCreate}>+ เพิ่มประเภท</button>
+      </div>
+
+      {/* ── Search ──────────────────────────────────────────── */}
+      <div style={{ marginBottom: 20, position: 'relative' }}>
+        <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-tertiary)' }} />
+        <input
+          className="input" placeholder="ค้นหาชื่อหรือ code..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{ paddingLeft: 36, height: 38 }}
+        />
+      </div>
+
+      {/* ── Loading / Empty ─────────────────────────────────── */}
+      {loading ? <Loading inline text="กำลังโหลด..." /> : grouped.length === 0 ? (
+        <div className="card-surface" style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
+          {search ? `ไม่พบประเภทหวยที่ตรงกับ "${search}"` : 'ยังไม่มีประเภทหวย'}
         </div>
-      </div>
+      ) : (
+        /* ── Category Groups ────────────────────────────────── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {grouped.map(group => {
+            const isCollapsed = collapsed[group.key]
+            return (
+              <div key={group.key} className="card-surface" style={{ overflow: 'hidden' }}>
+                {/* ── Category Header (clickable → collapse) ── */}
+                <div
+                  onClick={() => toggleCollapse(group.key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '14px 16px', cursor: 'pointer',
+                    borderBottom: isCollapsed ? 'none' : '1px solid var(--border)',
+                    userSelect: 'none',
+                  }}
+                >
+                  {/* สี accent ของ category */}
+                  <div style={{
+                    width: 4, height: 20, borderRadius: 2,
+                    background: group.color, flexShrink: 0,
+                  }} />
+                  <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{group.label}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-tertiary)', marginRight: 8 }}>
+                    {group.items.length} ประเภท
+                  </span>
+                  {isCollapsed
+                    ? <ChevronRight size={16} color="var(--text-tertiary)" />
+                    : <ChevronDown size={16} color="var(--text-tertiary)" />
+                  }
+                </div>
 
-      {/* ====== ตารางรายการประเภทหวย ====== */}
-      <div className="card-surface" style={{ overflow: 'hidden' }}>
-        {loading ? (
-          /* กำลังโหลด */
-          <Loading inline text="กำลังโหลดข้อมูล..." />
-        ) : types.length === 0 ? (
-          /* ไม่มีข้อมูล */
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            ยังไม่มีประเภทหวย — กดปุ่ม &quot;เพิ่มประเภทหวย&quot; เพื่อเริ่มต้น
-          </div>
-        ) : (
-          /* ตาราง admin-table */
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>ไอคอน</th>
-                <th>ชื่อประเภทหวย</th>
-                <th>รหัส</th>
-                <th>หมวดหมู่</th>
-                <th>สถานะ</th>
-                <th style={{ textAlign: 'right' }}>จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {types.map(lt => (
-                <tr key={lt.id}>
-                  {/* ไอคอน emoji */}
-                  <td style={{ fontSize: '20px', width: '60px' }}>{lt.icon}</td>
+                {/* ── Cards Grid ───────────────────────────── */}
+                {!isCollapsed && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                    gap: 1,
+                    background: 'var(--border)',
+                  }}>
+                    {group.items.map(lt => (
+                      <div key={lt.id} style={{
+                        background: 'var(--bg-surface)',
+                        padding: '14px 16px',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        transition: 'background 0.1s',
+                      }}>
+                        {/* Icon */}
+                        <span style={{ fontSize: 24, flexShrink: 0, width: 32, textAlign: 'center' }}>
+                          {lt.icon}
+                        </span>
 
-                  {/* ชื่อประเภทหวย */}
-                  <td style={{ fontWeight: 500 }}>{lt.name}</td>
+                        {/* Name + Code */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600,
+                            color: lt.status === 'active' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {lt.name}
+                          </div>
+                          <div style={{
+                            fontSize: 11, fontFamily: 'var(--font-mono, monospace)',
+                            color: 'var(--text-tertiary)', marginTop: 2,
+                          }}>
+                            {lt.code}
+                          </div>
+                        </div>
 
-                  {/* รหัส (monospace) */}
-                  <td className="mono secondary">{lt.code}</td>
+                        {/* Status dot */}
+                        <div style={{
+                          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                          background: lt.status === 'active' ? '#34d399' : 'var(--text-tertiary)',
+                          boxShadow: lt.status === 'active' ? '0 0 6px rgba(52,211,153,0.4)' : 'none',
+                        }} title={lt.status === 'active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
 
-                  {/* หมวดหมู่ */}
-                  <td className="secondary">
-                    {CATEGORY_OPTIONS.find(c => c.value === lt.category)?.label || lt.category}
-                  </td>
+                        {/* Edit button */}
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: '4px 6px', minWidth: 0 }}
+                          onClick={() => openEdit(lt)}
+                          title="แก้ไข"
+                        >
+                          <Edit2 size={14} />
+                        </button>
 
-                  {/* สถานะ badge */}
-                  <td>
-                    <span className={`badge ${lt.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
-                      {lt.status === 'active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                    </span>
-                  </td>
+                        {/* Toggle button */}
+                        <button
+                          className="btn btn-ghost"
+                          style={{
+                            padding: '4px 6px', minWidth: 0,
+                            color: lt.status === 'active' ? 'var(--status-error)' : 'var(--status-success)',
+                          }}
+                          onClick={() => toggleStatus(lt)}
+                          title={lt.status === 'active' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+                        >
+                          <Power size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-                  {/* ปุ่มจัดการ — แก้ไข + toggle สถานะ */}
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                      {/* ปุ่มแก้ไข */}
-                      <button className="btn btn-ghost" onClick={() => openEditModal(lt)}>
-                        แก้ไข
-                      </button>
-                      {/* ปุ่มเปลี่ยนสถานะ */}
-                      <button
-                        className={`btn ${lt.status === 'active' ? 'btn-danger' : 'btn-success'}`}
-                        onClick={() => toggleStatus(lt)}
-                      >
-                        {lt.status === 'active' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
-        {total > PER_PAGE && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
-            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
-            <button onClick={() => setPage(p => p+1)} disabled={types.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
-          </div>
-        )}
-      </div>
-
-      {/* ====================================================================
-       * Modal — ฟอร์มสร้าง/แก้ไขประเภทหวย
-       * ====================================================================
-       * ใช้ fixed overlay (position: fixed, inset: 0, z-index: 200)
-       * centered card สำหรับ form
-       * ==================================================================== */}
+      {/* ── Edit/Create Modal ───────────────────────────────── */}
       {showModal && (
         <div
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.6)',
-            backdropFilter: 'blur(4px)',
+            position: 'fixed', inset: 0, zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           }}
-          onClick={(e) => {
-            // คลิก backdrop → ปิด modal
-            if (e.target === e.currentTarget) closeModal()
-          }}
+          onClick={e => { if (e.target === e.currentTarget) closeModal() }}
         >
-          <div
-            className="card-surface"
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '24px',
-              animation: 'fadeSlideUp 0.2s ease',
-            }}
-          >
-            {/* หัวข้อ modal */}
-            <h2 style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              marginBottom: '20px',
-            }}>
+          <div className="card-surface" style={{
+            width: '100%', maxWidth: 480, padding: 24,
+            animation: 'fadeSlideUp 0.2s ease',
+          }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>
               {editing ? 'แก้ไขประเภทหวย' : 'เพิ่มประเภทหวยใหม่'}
             </h2>
 
-            {/* ====== Form fields ====== */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* ชื่อประเภทหวย */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: '6px' }}>
-                  ชื่อประเภทหวย
-                </label>
-                <input
-                  className="input"
-                  placeholder="เช่น หวยรัฐบาล"
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* ชื่อ + Icon (inline) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 12 }}>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>ชื่อประเภทหวย</label>
+                  <input className="input" placeholder="เช่น หวยรัฐบาลไทย" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>ไอคอน</label>
+                  <input className="input" style={{ textAlign: 'center', fontSize: 20 }} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} />
+                </div>
               </div>
 
-              {/* รหัส (code) */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: '6px' }}>
-                  รหัส (CODE)
-                </label>
-                <input
-                  className="input"
-                  placeholder="เช่น GOVT"
-                  value={form.code}
-                  onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                />
+              {/* Code + Category (inline) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>รหัส (CODE)</label>
+                  <input className="input" style={{ fontFamily: 'var(--font-mono, monospace)' }} placeholder="THAI_GOV" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} />
+                </div>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>หมวดหมู่</label>
+                  <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                    {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    <option value="other">อื่นๆ</option>
+                  </select>
+                </div>
               </div>
 
-              {/* หมวดหมู่ (category dropdown) */}
+              {/* Description */}
               <div>
-                <label className="label" style={{ display: 'block', marginBottom: '6px' }}>
-                  หมวดหมู่
-                </label>
-                <select
-                  className="input"
-                  value={form.category}
-                  onChange={e => setForm({ ...form, category: e.target.value })}
-                >
-                  {CATEGORY_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* ไอคอน Emoji */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: '6px' }}>
-                  ไอคอน (EMOJI)
-                </label>
-                <input
-                  className="input"
-                  placeholder="เช่น 🇹🇭"
-                  value={form.icon}
-                  onChange={e => setForm({ ...form, icon: e.target.value })}
-                />
-              </div>
-
-              {/* รายละเอียด */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: '6px' }}>
-                  รายละเอียด
-                </label>
-                <input
-                  className="input"
-                  placeholder="คำอธิบายเพิ่มเติม (ไม่บังคับ)"
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                />
+                <label className="label" style={{ display: 'block', marginBottom: 6 }}>รายละเอียด</label>
+                <input className="input" placeholder="คำอธิบาย (ไม่บังคับ)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
               </div>
             </div>
 
-            {/* ====== ปุ่ม submit / cancel ====== */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '24px',
-            }}>
-              <button className="btn btn-secondary" onClick={closeModal}>
-                ยกเลิก
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSubmit}
-                disabled={submitting || !form.name.trim() || !form.code.trim()}
-              >
-                {submitting ? 'กำลังบันทึก...' : editing ? 'บันทึกการแก้ไข' : 'สร้างประเภทหวย'}
+            {/* Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+              <button className="btn btn-secondary" onClick={closeModal}>ยกเลิก</button>
+              <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting || !form.name.trim() || !form.code.trim()}>
+                {submitting ? 'กำลังบันทึก...' : editing ? 'บันทึก' : 'สร้าง'}
               </button>
             </div>
           </div>
