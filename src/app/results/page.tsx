@@ -76,9 +76,11 @@ export default function ResultsPage() {
   const fetchRounds = () => {
     roundMgmtApi.list({ status: 'closed', per_page: 50 })
       .then(res => {
-        const items = res.data.data?.items || []
+        // ⭐ กรองยี่กีออก — ยี่กีออกผลอัตโนมัติ ไม่ต้องกรอก
+        const items = (res.data.data?.items || []).filter(
+          (r: Round) => r.lottery_type?.category !== 'yeekee' && !r.lottery_type?.code?.startsWith('YEEKEE')
+        )
         setRounds(items)
-        // auto-select ถ้ามีแค่ 1 รอบ
         if (items.length === 1) setSelectedRound(items[0])
       })
       .catch(() => {}).finally(() => setLoading(false))
