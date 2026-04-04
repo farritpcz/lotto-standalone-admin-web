@@ -128,7 +128,7 @@ export default function BansPage() {
 
   // ── Quick Add: submit หลายเลขพร้อมกัน ─────────────────────────
   const handleQuickAdd = async () => {
-    const numbers = addNumbers.split(/[,\s]+/).map(n => n.trim()).filter(n => n.length > 0)
+    const numbers = addNumbers.split(/[,\s\n]+/).map(n => n.trim()).filter(n => n.length > 0)
     if (numbers.length === 0 || !addLotteryId) return
     setSubmitting(true)
     let success = 0
@@ -320,11 +320,11 @@ export default function BansPage() {
               {/* เลขที่ต้องการอั้น (หลายเลข) */}
               <div>
                 <label className="label" style={{ display: 'block', marginBottom: 4 }}>เลขที่ต้องการอั้น</label>
-                <textarea className="input" rows={3} placeholder="กรอกหลายเลข คั่นด้วยช่องว่าง หรือ comma&#10;เช่น: 123 456 789 หรือ 123,456,789"
+                <textarea className="input" rows={5} placeholder="กรอกหลายเลข คั่นด้วยช่องว่าง หรือ comma&#10;เช่น: 123 456 789 หรือ 123,456,789&#10;&#10;กรอกเลขทีละบรรทัดก็ได้"
                   value={addNumbers} onChange={e => setAddNumbers(e.target.value)}
-                  style={{ resize: 'vertical', fontFamily: 'var(--font-mono, monospace)', fontSize: 15, lineHeight: 1.6 }} />
+                  style={{ resize: 'vertical', fontFamily: 'var(--font-mono, monospace)', fontSize: 18, lineHeight: 1.8, minHeight: 120, letterSpacing: 2 }} />
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  {addNumbers.split(/[,\s]+/).filter(n => n.trim().length > 0).length} เลข
+                  {addNumbers.split(/[,\s\n]+/).filter(n => n.trim().length > 0).length} เลข
                 </div>
               </div>
 
@@ -372,7 +372,7 @@ export default function BansPage() {
               <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>ยกเลิก</button>
               <button className="btn btn-primary" onClick={handleQuickAdd}
                 disabled={submitting || addNumbers.trim().length === 0 || !addLotteryId}>
-                {submitting ? 'กำลังอั้น...' : `อั้น ${addNumbers.split(/[,\s]+/).filter(n => n.trim().length > 0).length} เลข`}
+                {submitting ? 'กำลังอั้น...' : `อั้น ${addNumbers.split(/[,\s\n]+/).filter(n => n.trim().length > 0).length} เลข`}
               </button>
             </div>
           </div>
