@@ -165,8 +165,8 @@ export const depositApi = {
   approve: (id: number) => api.put(`/deposits/${id}/approve`),
   /** ปฏิเสธฝาก — ไม่เพิ่มเงิน */
   reject: (id: number, reason?: string) => api.put(`/deposits/${id}/reject`, { reason }),
-  /** ยกเลิกฝากที่อนุมัติแล้ว — หักเงินคืน */
-  cancel: (id: number, reason?: string) => api.put(`/deposits/${id}/cancel`, { reason }),
+  /** ยกเลิกฝากที่อนุมัติแล้ว — refund=true หักเครดิตคืน, false=ไม่หัก */
+  cancel: (id: number, refund: boolean, reason?: string) => api.put(`/deposits/${id}/cancel`, { refund, reason }),
 }
 
 // =============================================================================
