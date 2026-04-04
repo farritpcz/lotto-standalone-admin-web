@@ -232,30 +232,35 @@ export default function AutoBanPage() {
     setShowPreview(true)
   }, [selectedType, maxLoss])
 
-  // ⭐ ยืนยัน — สร้างกฎอั้นทั้งหมด ผ่าน API (เก็บ DB)
+  // ⭐ ยืนยัน — สร้างกฎอั้นให้ทุกประเภทหวย (ไม่ใช่แค่ตัวที่เลือก)
   const handleApplyCalculated = useCallback(async () => {
-    if (!selectedType || previewRules.length === 0) return
+    if (previewRules.length === 0 || lotteryTypes.length === 0) return
     setSaving(true)
+    const ruleData = previewRules.map(pr => ({
+      bet_type: pr.betType,
+      threshold_amount: pr.threshold,
+      action: pr.action,
+      rate: pr.rate,
+      reduced_rate: pr.reducedRate,
+    }))
     try {
-      await autoBanApi.bulkCreate({
-        lottery_type_id: selectedType.id,
-        capital: Number(capital) || 0,
-        max_loss: Number(maxLoss) || 0,
-        rules: previewRules.map(pr => ({
-          bet_type: pr.betType,
-          threshold_amount: pr.threshold,
-          action: pr.action,
-          rate: pr.rate,
-          reduced_rate: pr.reducedRate,
-        })),
-      })
+      // ⭐ Apply ให้ทุกหวยที่ active
+      const activeTypes = lotteryTypes.filter(lt => lt.status === 'active')
+      for (const lt of activeTypes) {
+        await autoBanApi.bulkCreate({
+          lottery_type_id: lt.id,
+          capital: Number(capital) || 0,
+          max_loss: Number(maxLoss) || 0,
+          rules: ruleData,
+        })
+      }
       setShowPreview(false)
       setPreviewRules([])
       saveCapitalToStorage(capital, maxLoss)
       await loadRules()
     } catch { /* ignore */ }
     finally { setSaving(false) }
-  }, [selectedType, previewRules, capital, maxLoss, loadRules])
+  }, [previewRules, capital, maxLoss, loadRules, lotteryTypes])
 
   // เพิ่มกฎ (manual) — ผ่าน API
   const handleAdd = useCallback(async () => {
@@ -399,7 +404,7 @@ export default function AutoBanPage() {
               <div className="flex gap-2">
                 <button onClick={() => setShowPreview(false)} className="btn btn-ghost text-xs">ยกเลิก</button>
                 <button onClick={handleApplyCalculated} disabled={saving} className="btn btn-primary text-xs disabled:opacity-50">
-                  {saving ? 'กำลังบันทึก...' : '✅ ใช้กฎเหล่านี้'}
+                  {saving ? `กำลังบันทึก (${lotteryTypes.filter(lt => lt.status === 'active').length} ประเภท)...` : `✅ ใช้กฎเหล่านี้กับทุกหวย (${lotteryTypes.filter(lt => lt.status === 'active').length} ประเภท)`}
                 </button>
               </div>
             </div>
