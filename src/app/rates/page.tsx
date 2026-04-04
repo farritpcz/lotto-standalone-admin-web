@@ -69,8 +69,8 @@ export default function RatesPage() {
     setSaving(true); setMessage(''); let saved = 0
     for (let i = 0; i < editRates.length; i++) {
       const orig = rates[i]; const edit = editRates[i]
-      if (orig && (orig.rate !== edit.rate || orig.max_bet_per_number !== edit.max_bet_per_number)) {
-        try { await rateMgmtApi.update(edit.id, { rate: edit.rate, max_bet_per_number: edit.max_bet_per_number }); saved++ }
+      if (orig && orig.rate !== edit.rate) {
+        try { await rateMgmtApi.update(edit.id, { rate: edit.rate }); saved++ }
         catch { /* skip */ }
       }
     }
@@ -150,44 +150,32 @@ export default function RatesPage() {
             {editRates.map((r, idx) => {
               const orig = rates[idx]
               const rateChanged = orig && r.rate !== orig.rate
-              const maxChanged = orig && r.max_bet_per_number !== orig.max_bet_per_number
-              const changed = rateChanged || maxChanged
               return (
                 <div key={r.id} style={{
-                  background: changed ? 'color-mix(in srgb, var(--accent) 5%, var(--bg-surface))' : 'var(--bg-surface)',
+                  background: rateChanged ? 'color-mix(in srgb, var(--accent) 5%, var(--bg-surface))' : 'var(--bg-surface)',
                   padding: '14px 16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
                 }}>
                   {/* Bet type name + code */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{r.bet_type?.name || '—'}</div>
-                      <div style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-tertiary)' }}>{r.bet_type?.code}</div>
-                    </div>
-                    {changed && <span className="badge badge-warning" style={{ fontSize: 10 }}>แก้ไขแล้ว</span>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{r.bet_type?.name || '—'}</div>
+                    <div style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-tertiary)' }}>{r.bet_type?.code}</div>
                   </div>
-                  {/* Rate + Max bet inputs */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>อัตราจ่าย (x)</label>
+                  {/* Rate input */}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 4 }}>อัตราจ่าย</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>x</span>
                       <input type="number" value={r.rate} onChange={e => updateDraft(r.id, 'rate', Number(e.target.value))}
                         className="input" style={{
-                          textAlign: 'right', fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: 16,
+                          width: 100, textAlign: 'right', fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: 16,
                           color: rateChanged ? 'var(--accent)' : 'var(--text-primary)',
                           borderColor: rateChanged ? 'var(--accent)' : undefined,
                           height: 38,
                         }} />
                     </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Max/เลข (฿)</label>
-                      <input type="number" value={r.max_bet_per_number} onChange={e => updateDraft(r.id, 'max_bet_per_number', Number(e.target.value))}
-                        className="input" placeholder="0 = ไม่จำกัด" style={{
-                          textAlign: 'right', fontFamily: 'var(--font-mono, monospace)',
-                          color: maxChanged ? 'var(--accent)' : 'var(--text-secondary)',
-                          borderColor: maxChanged ? 'var(--accent)' : undefined,
-                          height: 38,
-                        }} />
-                    </div>
                   </div>
+                  {rateChanged && <span className="badge badge-warning" style={{ fontSize: 10 }}>แก้ไข</span>}
                 </div>
               )
             })}
