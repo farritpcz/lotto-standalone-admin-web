@@ -39,6 +39,7 @@ interface Banner {
   link_url: string
   sort_order: number
   is_active: boolean
+  status?: string // ⭐ API ส่ง status: "active"/"inactive" — แปลงเป็น is_active ตอนโหลด
 }
 
 /** ฟอร์มแบนเนอร์ */
@@ -137,7 +138,9 @@ export default function CMSPage() {
         api.get('/cms/ticker'),
         api.get('/cms/lottery-images'),
       ])
-      setBanners(bannersRes.status === 'fulfilled' ? bannersRes.value.data.data || [] : MOCK_BANNERS)
+      // ⭐ API ส่ง status: "active" — แปลงเป็น is_active: boolean สำหรับ UI
+      const rawBanners = bannersRes.status === 'fulfilled' ? bannersRes.value.data.data || [] : MOCK_BANNERS
+      setBanners(rawBanners.map((b: Banner) => ({ ...b, is_active: b.is_active ?? (b.status === 'active') })))
       setTickerText(tickerRes.status === 'fulfilled' ? (tickerRes.value.data.data?.ticker_text || tickerRes.value.data.data?.text || '') : MOCK_TICKER)
       setLotteryImages(imagesRes.status === 'fulfilled' ? imagesRes.value.data.data || [] : MOCK_LOTTERY_IMAGES)
     } catch {
@@ -180,10 +183,12 @@ export default function CMSPage() {
       return
     }
     try {
+      // ⭐ แปลง is_active → status สำหรับ API
+      const payload = { ...bannerForm, status: bannerForm.is_active ? 'active' : 'inactive' }
       if (editingBannerId) {
-        await api.put(`/cms/banners/${editingBannerId}`, bannerForm)
+        await api.put(`/cms/banners/${editingBannerId}`, payload)
       } else {
-        await api.post('/cms/banners', bannerForm)
+        await api.post('/cms/banners', payload)
       }
       setShowBannerModal(false)
       loadAllData()
