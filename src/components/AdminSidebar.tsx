@@ -50,7 +50,6 @@ export const menuGroups: { label: string; items: { href: string; label: string; 
       { href: '/bans/auto', label: 'อั้นอัตโนมัติ', icon: Zap },
       { href: '/rates', label: 'อัตราจ่าย', icon: DollarSign },
       { href: '/yeekee', label: 'ยี่กี', icon: Zap },
-      { href: '/yeekee/config', label: 'ตั้งค่ายี่กี', icon: Settings },
     ],
   },
   {
