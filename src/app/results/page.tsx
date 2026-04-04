@@ -16,9 +16,10 @@ import Loading from '@/components/Loading'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Round {
-  id: number; lottery_type?: { name: string }; round_number: string
+  id: number; lottery_type?: { name: string; code?: string }; round_number: string
   round_date: string; status: string
   result_top3?: string; result_top2?: string; result_bottom2?: string
+  result_front3?: string; result_bottom3?: string // ⭐ 3 ตัวหน้า + 3 ตัวล่าง
 }
 
 interface Winner {
@@ -43,6 +44,8 @@ export default function ResultsPage() {
   const [selectedRound, setSelectedRound] = useState<Round | null>(null)
   const [top3, setTop3] = useState('')
   const [bottom2, setBottom2] = useState('')
+  const [front3, setFront3] = useState('')     // ⭐ 3 ตัวหน้า (optional — เฉพาะหวยไทย)
+  const [bottom3, setBottom3] = useState('')   // ⭐ 3 ตัวล่าง (optional — comma-separated)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -106,7 +109,11 @@ export default function ResultsPage() {
     setPreviewing(true); setMessage('')
     try {
       const top2 = top3.slice(-2)
-      const res = await resultMgmtApi.preview(selectedRound.id, { top3, top2, bottom2 })
+      // ⭐ ส่ง front3/bottom3 ถ้ามี (เฉพาะหวยไทย)
+      const payload: Record<string, string> = { top3, top2, bottom2 }
+      if (front3) payload.front3 = front3
+      if (bottom3) payload.bottom3 = bottom3
+      const res = await resultMgmtApi.preview(selectedRound.id, payload)
       setPreview(res.data.data)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
@@ -120,10 +127,14 @@ export default function ResultsPage() {
     setSubmitting(true); setMessage('')
     try {
       const top2 = top3.slice(-2)
-      const res = await resultMgmtApi.submit(selectedRound.id, { top3, top2, bottom2 })
+      // ⭐ ส่ง front3/bottom3 ถ้ามี
+      const payload: Record<string, string> = { top3, top2, bottom2 }
+      if (front3) payload.front3 = front3
+      if (bottom3) payload.bottom3 = bottom3
+      const res = await resultMgmtApi.submit(selectedRound.id, payload)
       const data = res.data.data
       setMessage(`กรอกผลสำเร็จ! ถูก ${data?.settled || 0} รายการ, จ่าย ฿${(data?.total_win || 0).toLocaleString()}`)
-      setPreview(null); setSelectedRound(null); setTop3(''); setBottom2('')
+      setPreview(null); setSelectedRound(null); setTop3(''); setBottom2(''); setFront3(''); setBottom3('')
       fetchRounds(); fetchResults()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
@@ -176,9 +187,10 @@ export default function ResultsPage() {
             {/* กรอกเลข */}
             {selectedRound && (
               <>
+                {/* ── ผลหลัก: 3 ตัวบน + 2 ตัวล่าง (บังคับ) ─────────── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
-                    <div className="label" style={{ marginBottom: 6 }}>3 ตัวบน</div>
+                    <div className="label" style={{ marginBottom: 6 }}>3 ตัวบน <span style={{ color: 'var(--status-error)' }}>*</span></div>
                     <input type="text" value={top3}
                       onChange={e => { setTop3(e.target.value.replace(/\D/g, '').slice(0, 3)); setPreview(null) }}
                       placeholder="847" maxLength={3} className="input"
@@ -186,11 +198,31 @@ export default function ResultsPage() {
                     />
                   </div>
                   <div>
-                    <div className="label" style={{ marginBottom: 6 }}>2 ตัวล่าง</div>
+                    <div className="label" style={{ marginBottom: 6 }}>2 ตัวล่าง <span style={{ color: 'var(--status-error)' }}>*</span></div>
                     <input type="text" value={bottom2}
                       onChange={e => { setBottom2(e.target.value.replace(/\D/g, '').slice(0, 2)); setPreview(null) }}
                       placeholder="56" maxLength={2} className="input"
                       style={{ textAlign: 'center', fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)', height: 56, color: '#3b82f6' }}
+                    />
+                  </div>
+                </div>
+
+                {/* ── ผลเพิ่มเติม: 3 ตัวหน้า + 3 ตัวล่าง (optional — หวยไทย) ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <div className="label" style={{ marginBottom: 6 }}>3 ตัวหน้า <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>(optional)</span></div>
+                    <input type="text" value={front3}
+                      onChange={e => { setFront3(e.target.value.replace(/\D/g, '').slice(0, 3)); setPreview(null) }}
+                      placeholder="491" maxLength={3} className="input"
+                      style={{ textAlign: 'center', fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', height: 48, color: '#ec4899' }}
+                    />
+                  </div>
+                  <div>
+                    <div className="label" style={{ marginBottom: 6 }}>3 ตัวล่าง <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>(comma แยกรางวัล)</span></div>
+                    <input type="text" value={bottom3}
+                      onChange={e => { setBottom3(e.target.value.replace(/[^\d,]/g, '')); setPreview(null) }}
+                      placeholder="123,456" className="input"
+                      style={{ textAlign: 'center', fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', height: 48, color: '#a855f7' }}
                     />
                   </div>
                 </div>
@@ -200,11 +232,14 @@ export default function ResultsPage() {
                   <div style={{
                     background: 'var(--bg-elevated)', borderRadius: 8,
                     padding: '12px 16px', marginBottom: 16, fontSize: 13,
-                    display: 'flex', gap: 20,
+                    display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
                   }}>
                     <span style={{ color: 'var(--text-secondary)' }}>3 ตัวบน: <span style={{ color: '#f5a623', fontWeight: 700 }}>{top3}</span></span>
                     <span style={{ color: 'var(--text-secondary)' }}>2 ตัวบน: <span style={{ color: '#00e5a0', fontWeight: 700 }}>{top3.slice(-2)}</span></span>
                     <span style={{ color: 'var(--text-secondary)' }}>2 ตัวล่าง: <span style={{ color: '#3b82f6', fontWeight: 700 }}>{bottom2 || '??'}</span></span>
+                    {front3 && <span style={{ color: 'var(--text-secondary)' }}>3 ตัวหน้า: <span style={{ color: '#ec4899', fontWeight: 700 }}>{front3}</span></span>}
+                    {bottom3 && <span style={{ color: 'var(--text-secondary)' }}>3 ตัวล่าง: <span style={{ color: '#a855f7', fontWeight: 700 }}>{bottom3}</span></span>}
+                    {front3 && top3 && <span style={{ color: 'var(--text-secondary)' }}>4 ตัวบน: <span style={{ color: '#14b8a6', fontWeight: 700 }}>{(front3 + top3).slice(-4)}</span></span>}
                   </div>
                 )}
 
