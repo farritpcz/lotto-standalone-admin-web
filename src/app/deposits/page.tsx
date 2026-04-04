@@ -23,6 +23,8 @@ const statusMap: Record<string, { cls: string; label: string }> = {
   approved:  { cls: 'badge-success', label: 'อนุมัติแล้ว' },
   rejected:  { cls: 'badge-error', label: 'ปฏิเสธ' },
   cancelled: { cls: 'badge-neutral', label: 'ยกเลิก' },
+  unmatched: { cls: 'badge-warning', label: 'ไม่ตรงยอด' },
+  expired:   { cls: 'badge-neutral', label: 'หมดอายุ' },
 }
 
 const filterTabs = [
@@ -30,6 +32,7 @@ const filterTabs = [
   { key: 'pending', label: 'รอดำเนินการ' },
   { key: 'approved', label: 'อนุมัติแล้ว' },
   { key: 'rejected', label: 'ปฏิเสธ' },
+  { key: 'unmatched', label: 'ไม่ตรงยอด' },
 ]
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -37,6 +40,7 @@ interface DepositRow {
   id: number; member_id: number; username: string
   amount: number; status: string; created_at: string
   approved_at?: string; note?: string
+  slip_url?: string | null; auto_matched?: boolean
 }
 
 /* Format ID เป็น DPS00001 */
@@ -168,6 +172,7 @@ export default function DepositsPage() {
                 <th>ID</th>
                 <th>สมาชิก</th>
                 <th style={{ textAlign: 'right' }}>จำนวนเงิน</th>
+                <th>สลิป</th>
                 <th>สถานะ</th>
                 <th>วันที่</th>
                 <th style={{ textAlign: 'right' }}>จัดการ</th>
@@ -189,7 +194,20 @@ export default function DepositsPage() {
                       </a>
                     </td>
                     <td className="mono" style={{ textAlign: 'right', color: '#00e5a0', fontWeight: 600 }}>{fmtMoney(row.amount)}</td>
-                    <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
+                    <td>
+                      {row.slip_url ? (
+                        <a href={row.slip_url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+                          style={{ display: 'inline-block', width: 32, height: 32, borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                          <img src={row.slip_url} alt="slip" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>-</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${st.cls}`}>{st.label}</span>
+                      {row.auto_matched && <span className="badge badge-primary" style={{ marginLeft: 4, fontSize: 10 }}>AUTO</span>}
+                    </td>
                     <td className="secondary" style={{ fontSize: 12 }}>{fmtDate(row.created_at)}</td>
                     <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                       {row.status === 'pending' && (
@@ -236,11 +254,22 @@ export default function DepositsPage() {
               <button onClick={() => setSelectedRow(null)} className="btn btn-ghost">✕</button>
             </div>
 
+            {/* สลิปโอนเงิน */}
+            {selectedRow.slip_url && (
+              <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                <div className="label" style={{ marginBottom: 8 }}>สลิปโอนเงิน</div>
+                <a href={selectedRow.slip_url} target="_blank" rel="noopener">
+                  <img src={selectedRow.slip_url} alt="slip"
+                    style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid var(--border)' }} />
+                </a>
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
                 { label: 'สมาชิก', value: selectedRow.username || `ID:${selectedRow.member_id}` },
                 { label: 'จำนวนเงิน', value: fmtMoney(selectedRow.amount), color: '#00e5a0', bold: true },
-                { label: 'สถานะ', value: (statusMap[selectedRow.status] || statusMap.pending).label },
+                { label: 'สถานะ', value: (statusMap[selectedRow.status] || statusMap.pending).label + (selectedRow.auto_matched ? ' (Auto)' : '') },
                 { label: 'วันที่แจ้ง', value: fmtDate(selectedRow.created_at) },
                 ...(selectedRow.approved_at ? [{ label: 'วันที่ดำเนินการ', value: fmtDate(selectedRow.approved_at) }] : []),
               ].map(row => (

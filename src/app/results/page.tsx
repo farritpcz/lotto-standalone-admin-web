@@ -364,6 +364,8 @@ export default function ResultsPage() {
                 <th style={{ textAlign: 'center' }}>3 ตัวบน</th>
                 <th style={{ textAlign: 'center' }}>2 ตัวบน</th>
                 <th style={{ textAlign: 'center' }}>2 ตัวล่าง</th>
+                <th style={{ textAlign: 'center' }}>3 ตัวหน้า</th>
+                <th style={{ textAlign: 'center' }}>3 ตัวล่าง</th>
               </tr>
             </thead>
             <tbody>
@@ -375,6 +377,8 @@ export default function ResultsPage() {
                   <td className="mono" style={{ textAlign: 'center', color: '#f5a623', fontWeight: 700, fontSize: 16 }}>{r.result_top3}</td>
                   <td className="mono" style={{ textAlign: 'center', color: '#00e5a0', fontWeight: 700, fontSize: 16 }}>{r.result_top2}</td>
                   <td className="mono" style={{ textAlign: 'center', color: '#3b82f6', fontWeight: 700, fontSize: 16 }}>{r.result_bottom2}</td>
+                  <td className="mono" style={{ textAlign: 'center', color: '#ec4899', fontWeight: 700, fontSize: 16 }}>{r.result_front3 || '—'}</td>
+                  <td className="mono" style={{ textAlign: 'center', color: '#a855f7', fontWeight: 700, fontSize: 16 }}>{r.result_bottom3 || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -410,11 +414,13 @@ export default function ResultsPage() {
             </div>
 
             {/* ผลที่ออก */}
-            <div style={{ padding: '16px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
+            <div style={{ padding: '16px 20px', display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
                 { label: '3 ตัวบน', value: detailRound.result_top3, color: '#f5a623' },
                 { label: '2 ตัวบน', value: detailRound.result_top2, color: '#00e5a0' },
                 { label: '2 ตัวล่าง', value: detailRound.result_bottom2, color: '#3b82f6' },
+                ...(detailRound.result_front3 ? [{ label: '3 ตัวหน้า', value: detailRound.result_front3, color: '#ec4899' }] : []),
+                ...(detailRound.result_bottom3 ? [{ label: '3 ตัวล่าง', value: detailRound.result_bottom3, color: '#a855f7' }] : []),
               ].map(r => (
                 <div key={r.label} style={{ textAlign: 'center' }}>
                   <div className="label" style={{ marginBottom: 4 }}>{r.label}</div>

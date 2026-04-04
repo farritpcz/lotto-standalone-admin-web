@@ -280,6 +280,13 @@ export const yeekeeMgmtApi = {
 
   /** สถิติยี่กีวันนี้ */
   getStats: () => api.get('/yeekee/stats'),
+
+  /** ดู config ยี่กี (agent ไหนเปิดอยู่) */
+  getConfig: () => api.get('/yeekee/config'),
+
+  /** เปิด/ปิดยี่กี สำหรับ agent */
+  setConfig: (data: { agent_id: number; enabled: boolean }) =>
+    api.post('/yeekee/config', data),
 }
 
 // TypeScript types สำหรับ Yeekee
