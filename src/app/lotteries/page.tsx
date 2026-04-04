@@ -106,8 +106,8 @@ export default function LotteriesPage() {
     if (!form.name.trim() || !form.code.trim()) return
     try {
       setSubmitting(true)
-      if (editing) await lotteryMgmtApi.update(editing.id, form)
-      else await lotteryMgmtApi.create(form)
+      if (editing) await lotteryMgmtApi.update(editing.id, form as unknown as Record<string, unknown>)
+      else await lotteryMgmtApi.create(form as unknown as Record<string, unknown>)
       closeModal(); await loadData()
     } catch { /* silent */ } finally { setSubmitting(false) }
   }

@@ -138,7 +138,7 @@ export default function CMSPage() {
         api.get('/cms/lottery-images'),
       ])
       setBanners(bannersRes.status === 'fulfilled' ? bannersRes.value.data.data || [] : MOCK_BANNERS)
-      setTickerText(tickerRes.status === 'fulfilled' ? tickerRes.value.data.data?.text || '' : MOCK_TICKER)
+      setTickerText(tickerRes.status === 'fulfilled' ? (tickerRes.value.data.data?.ticker_text || tickerRes.value.data.data?.text || '') : MOCK_TICKER)
       setLotteryImages(imagesRes.status === 'fulfilled' ? imagesRes.value.data.data || [] : MOCK_LOTTERY_IMAGES)
     } catch {
       // fallback ทั้งหมด
@@ -230,7 +230,7 @@ export default function CMSPage() {
   const handleSaveTicker = async () => {
     setTickerSaving(true)
     try {
-      await api.put('/cms/ticker', { text: tickerText })
+      await api.put('/cms/ticker', { ticker_text: tickerText })
     } catch {
       // mock: ไม่ต้องทำอะไร (เก็บ state อยู่แล้ว)
     }

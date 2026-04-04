@@ -469,7 +469,7 @@ export default function AutoBanPage() {
               const items = lotteryTypes.filter(lt => (lt as LotteryType & { category?: string }).code?.startsWith(cat.key.toUpperCase()) || false)
               // fallback: group by name pattern
               const grouped = lotteryTypes.filter(lt => {
-                const c = (lt as LotteryType & { category?: string }) as Record<string, unknown>
+                const c = (lt as unknown) as Record<string, unknown>
                 return c.category === cat.key || (cat.key === 'stock' && lt.name.includes('หุ้น'))
                   || (cat.key === 'thai' && (lt.name.includes('รัฐบาล') || lt.name.includes('ธกส') || lt.name.includes('ออมสิน')))
                   || (cat.key === 'yeekee' && lt.name.includes('ยี่กี'))

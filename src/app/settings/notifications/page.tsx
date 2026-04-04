@@ -1,367 +1,214 @@
 /**
- * Admin — ตั้งค่าระบบแจ้งเตือน (Telegram Notifications)
+ * Admin — ตั้งค่าระบบแจ้งเตือน Telegram
  *
- * ⭐ รองรับหลายกลุ่ม — แต่ละกลุ่มมี Bot Token + Chat ID + จุดแจ้งเตือนแยกกัน
+ * ⭐ เชื่อม API จริง:
+ *  - GET /api/v1/notifications/config
+ *  - PUT /api/v1/notifications/config
+ *  - POST /api/v1/notifications/test
  *
- * ตัวอย่าง:
- *  - กลุ่ม "แอดมิน" → แจ้งเตือนฝาก/ถอน/กรอกผล
- *  - กลุ่ม "ฝ่ายการเงิน" → แจ้งเตือนฝาก/ถอนเท่านั้น
- *  - กลุ่ม "เจ้าของ" → แจ้งเตือนยอดสูง/กำไรขาดทุน
- *
- * ⭐ ตอนนี้เป็น UI — เมื่อ API พร้อมจะเชื่อมจริง
+ * ความสัมพันธ์:
+ * - api.ts → notificationApi
+ * - admin-api (#5) → handler/notifications.go
+ * - ส่ง notification จริงเมื่อเกิด event (deposit/withdraw/new_member/large_win)
  */
 'use client'
 
-import { useState } from 'react'
-import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import { useEffect, useState, useCallback } from 'react'
+import { notificationApi, type NotifyConfig } from '@/lib/api'
+import { useToast } from '@/components/Toast'
+import Loading from '@/components/Loading'
+import { Bell, Send, Save } from 'lucide-react'
 
-/* ── จุดแจ้งเตือนที่ตั้งได้ ─────────────────────────────────────────── */
-const NOTIFY_POINTS = [
-  { key: 'on_register', label: 'สมัครใหม่', icon: '👤' },
-  { key: 'on_deposit', label: 'แจ้งฝาก', icon: '📥' },
-  { key: 'on_withdraw', label: 'แจ้งถอน', icon: '📤' },
-  { key: 'on_deposit_approve', label: 'อนุมัติฝาก', icon: '✅' },
-  { key: 'on_withdraw_approve', label: 'อนุมัติถอน', icon: '✅' },
-  { key: 'on_result', label: 'กรอกผล', icon: '🏆' },
-  { key: 'on_large_bet', label: 'เดิมพันยอดสูง', icon: '🎰' },
-  { key: 'on_large_win', label: 'ถูกรางวัลยอดสูง', icon: '💰' },
-  { key: 'on_login', label: 'แอดมิน login', icon: '🔑' },
+// ─── จุดแจ้งเตือนที่ตั้งได้ ─────────────────────────────────────────
+const NOTIFY_TOGGLES: { key: keyof NotifyConfig; label: string; icon: string; desc: string }[] = [
+  { key: 'on_deposit', label: 'คำขอฝากเงิน', icon: '📥', desc: 'แจ้งเตือนเมื่อสมาชิกแจ้งฝากเงิน' },
+  { key: 'on_withdraw', label: 'คำขอถอนเงิน', icon: '📤', desc: 'แจ้งเตือนเมื่อสมาชิกแจ้งถอนเงิน' },
+  { key: 'on_new_member', label: 'สมัครสมาชิกใหม่', icon: '👤', desc: 'แจ้งเตือนเมื่อมีสมาชิกสมัครใหม่' },
+  { key: 'on_large_win', label: 'ถูกรางวัลยอดสูง', icon: '💰', desc: 'แจ้งเตือนเมื่อถูกรางวัลเกินจำนวนที่ตั้งไว้' },
 ]
 
-/* ── Type: กลุ่มแจ้งเตือน ─────────────────────────────────────────────── */
-interface NotifyGroup {
-  id: string
-  name: string
-  botToken: string
-  chatId: string
-  enabled: Record<string, boolean>
-  largeBetThreshold: number
-  largeWinThreshold: number
-  active: boolean
+// ─── Default Config ──────────────────────────────────────────────────
+const defaultConfig: NotifyConfig = {
+  enabled: false, bot_token: '', chat_id: '',
+  on_deposit: true, on_withdraw: true, on_new_member: true,
+  on_large_win: false, large_win_min: 10000,
 }
-
-/* สร้าง ID สำหรับกลุ่มใหม่ */
-const genId = () => Math.random().toString(36).slice(2, 8)
-
-/* Default enabled — ปิดทุกอัน (ให้ admin เลือกเอง) */
-const defaultEnabled = () => {
-  const e: Record<string, boolean> = {}
-  NOTIFY_POINTS.forEach(p => { e[p.key] = false })
-  return e
-}
-
-/* ── Mock data — กลุ่มเริ่มต้น ────────────────────────────────────────── */
-const INITIAL_GROUPS: NotifyGroup[] = [
-  {
-    id: 'grp1', name: 'กลุ่มแอดมิน', botToken: '', chatId: '',
-    enabled: { on_register: true, on_deposit: true, on_withdraw: true, on_deposit_approve: true, on_withdraw_approve: true, on_result: true, on_large_bet: false, on_large_win: false, on_login: true },
-    largeBetThreshold: 5000, largeWinThreshold: 50000, active: true,
-  },
-]
 
 export default function NotificationSettingsPage() {
-  const [groups, setGroups] = useState<NotifyGroup[]>(INITIAL_GROUPS)
-  const [editingGroup, setEditingGroup] = useState<NotifyGroup | null>(null)
-  const [showModal, setShowModal] = useState(false)
+  const [config, setConfig] = useState<NotifyConfig>(defaultConfig)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState('')
-  const [confirmDlg, setConfirmDlg] = useState<ConfirmDialogProps | null>(null)
-  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const { toast } = useToast()
 
-  /* ── เปิด modal เพิ่ม/แก้ไขกลุ่ม ───────────────────────────────────── */
-  const openAdd = () => {
-    setEditingGroup({
-      id: genId(), name: '', botToken: '', chatId: '',
-      enabled: defaultEnabled(),
-      largeBetThreshold: 5000, largeWinThreshold: 50000, active: true,
-    })
-    setShowModal(true)
-  }
+  // ─── โหลด config จาก API ───────────────────────────────────────────
+  const loadConfig = useCallback(() => {
+    setLoading(true)
+    notificationApi.getConfig()
+      .then(res => setConfig(res.data.data || defaultConfig))
+      .catch(() => {}) // ใช้ default ถ้า API ยังไม่มีข้อมูล
+      .finally(() => setLoading(false))
+  }, [])
 
-  const openEdit = (g: NotifyGroup) => {
-    setEditingGroup({ ...g, enabled: { ...g.enabled } })
-    setShowModal(true)
-  }
+  useEffect(() => { loadConfig() }, [loadConfig])
 
-  /* ── บันทึกกลุ่ม ────────────────────────────────────────────────────── */
-  const saveGroup = () => {
-    if (!editingGroup || !editingGroup.name.trim()) return
-    setGroups(prev => {
-      const exists = prev.find(g => g.id === editingGroup.id)
-      if (exists) return prev.map(g => g.id === editingGroup.id ? editingGroup : g)
-      return [...prev, editingGroup]
-    })
-    setShowModal(false)
-    setEditingGroup(null)
-  }
-
-  /* ── ลบกลุ่ม ─────────────────────────────────────────────────────────── */
-  const deleteGroup = (g: NotifyGroup) => {
-    setConfirmDlg({
-      title: 'ลบกลุ่มแจ้งเตือน',
-      message: `ยืนยันลบกลุ่ม "${g.name}"?\nจะหยุดแจ้งเตือนทุกจุดของกลุ่มนี้`,
-      type: 'danger',
-      confirmLabel: 'ลบ',
-      onConfirm: () => { setGroups(prev => prev.filter(x => x.id !== g.id)); setConfirmDlg(null) },
-      onCancel: () => setConfirmDlg(null),
-    })
-  }
-
-  /* ── Toggle active ───────────────────────────────────────────────────── */
-  const toggleActive = (id: string) => {
-    setGroups(prev => prev.map(g => g.id === id ? { ...g, active: !g.active } : g))
-  }
-
-  /* ── ทดสอบส่งข้อความ ─────────────────────────────────────────────────── */
-  const handleTest = async (g: NotifyGroup) => {
-    if (!g.botToken || !g.chatId) { setMessage('กรุณากรอก Bot Token + Chat ID ของกลุ่มนี้'); return }
-    setTestingId(g.id)
-    await new Promise(r => setTimeout(r, 1000))
-    setMessage(`ส่ง test ไปกลุ่ม "${g.name}" สำเร็จ (mock)`)
-    setTestingId(null)
-    setTimeout(() => setMessage(''), 3000)
-  }
-
-  /* ── บันทึกทั้งหมด ───────────────────────────────────────────────────── */
-  const handleSaveAll = async () => {
+  // ─── บันทึก config ─────────────────────────────────────────────────
+  const handleSave = async () => {
     setSaving(true)
-    await new Promise(r => setTimeout(r, 500))
-    setMessage('บันทึกทั้งหมดสำเร็จ')
-    setSaving(false)
-    setTimeout(() => setMessage(''), 3000)
+    try {
+      await notificationApi.updateConfig(config)
+      toast.success('บันทึกการตั้งค่าสำเร็จ')
+    } catch { toast.error('บันทึกไม่สำเร็จ') }
+    finally { setSaving(false) }
   }
+
+  // ─── ทดสอบส่ง ──────────────────────────────────────────────────────
+  const handleTest = async () => {
+    if (!config.bot_token || !config.chat_id) {
+      toast.error('กรุณากรอก Bot Token และ Chat ID ก่อน')
+      return
+    }
+    // ⭐ บันทึกก่อนทดสอบ (ให้ API มี token/chat_id สำหรับส่ง)
+    setSaving(true)
+    try { await notificationApi.updateConfig(config) } catch {}
+    setSaving(false)
+
+    setTesting(true)
+    try {
+      await notificationApi.test()
+      toast.success('ส่งข้อความทดสอบสำเร็จ — ตรวจสอบ Telegram')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'ส่งไม่สำเร็จ'
+      toast.error(msg)
+    } finally { setTesting(false) }
+  }
+
+  if (loading) return <div className="page-container"><Loading inline text="กำลังโหลด..." /></div>
 
   return (
     <div className="page-container">
       {/* Header */}
       <div className="page-header">
-        <h1>ตั้งค่าระบบแจ้งเตือน</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Bell size={20} />
+          <h1>ตั้งค่าระบบแจ้งเตือน Telegram</h1>
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={openAdd} className="btn btn-secondary">+ เพิ่มกลุ่ม</button>
-          <button onClick={handleSaveAll} disabled={saving} className="btn btn-primary">
-            {saving ? 'กำลังบันทึก...' : '💾 บันทึกทั้งหมด'}
+          <button onClick={handleTest} className="btn btn-secondary" style={{ gap: 6 }} disabled={testing}>
+            <Send size={14} /> {testing ? 'กำลังส่ง...' : 'ทดสอบส่ง'}
+          </button>
+          <button onClick={handleSave} className="btn btn-primary" style={{ gap: 6 }} disabled={saving}>
+            <Save size={14} /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>
       </div>
 
-      {/* Message */}
-      {message && (
-        <div style={{
-          background: message.includes('สำเร็จ') ? 'var(--status-success-bg)' : 'var(--status-error-bg)',
-          color: message.includes('สำเร็จ') ? 'var(--status-success)' : 'var(--status-error)',
-          borderRadius: 8, padding: '8px 16px', marginBottom: 16, fontSize: 13,
-        }}>
-          {message}
-        </div>
-      )}
-
-      {/* ══ รายการกลุ่มแจ้งเตือน ════════════════════════════════════════════ */}
-      {groups.length === 0 ? (
-        <div className="card-surface" style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-          ยังไม่มีกลุ่มแจ้งเตือน — กดปุ่ม "+ เพิ่มกลุ่ม" เพื่อเริ่มต้น
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {groups.map(g => {
-            const enabledCount = Object.values(g.enabled).filter(Boolean).length
-            return (
-              <div key={g.id} className="card-surface" style={{ padding: 20, opacity: g.active ? 1 : 0.5 }}>
-                {/* ── Header: ชื่อกลุ่ม + toggle + actions ────────────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {/* Toggle active */}
-                    <button onClick={() => toggleActive(g.id)} style={{
-                      width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-                      background: g.active ? 'var(--accent)' : 'var(--bg-elevated)',
-                      position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-                    }}>
-                      <div style={{
-                        width: 18, height: 18, borderRadius: 9, background: 'white',
-                        position: 'absolute', top: 3, left: g.active ? 23 : 3, transition: 'left 0.2s',
-                      }} />
-                    </button>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{g.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        {g.chatId ? `Chat: ${g.chatId}` : 'ยังไม่ได้ตั้ง Chat ID'} · {enabledCount}/{NOTIFY_POINTS.length} จุด
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => handleTest(g)} disabled={testingId === g.id}
-                      className="btn btn-ghost" style={{ fontSize: 12 }}>
-                      {testingId === g.id ? '📤...' : '📤 ทดสอบ'}
-                    </button>
-                    <button onClick={() => openEdit(g)} className="btn btn-ghost" style={{ fontSize: 12 }}>แก้ไข</button>
-                    <button onClick={() => deleteGroup(g)} className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--status-error)' }}>ลบ</button>
-                  </div>
-                </div>
-
-                {/* ── จุดแจ้งเตือนที่เปิดอยู่ (badges) ─────────────────────── */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {NOTIFY_POINTS.map(np => (
-                    <span key={np.key} style={{
-                      fontSize: 11, padding: '3px 8px', borderRadius: 4,
-                      background: g.enabled[np.key] ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
-                      color: g.enabled[np.key] ? 'var(--accent)' : 'var(--text-tertiary)',
-                      fontWeight: g.enabled[np.key] ? 500 : 400,
-                    }}>
-                      {np.icon} {np.label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ══ Modal: เพิ่ม/แก้ไขกลุ่ม ════════════════════════════════════════ */}
-      {showModal && editingGroup && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, maxWidth: 560, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>
-                {groups.find(g => g.id === editingGroup.id) ? 'แก้ไขกลุ่มแจ้งเตือน' : 'เพิ่มกลุ่มแจ้งเตือน'}
-              </div>
-              <button onClick={() => setShowModal(false)} className="btn btn-ghost">✕</button>
-            </div>
-
-            {/* ── ชื่อกลุ่ม ──────────────────────────────────────────────── */}
-            <div style={{ marginBottom: 16 }}>
-              <div className="label" style={{ marginBottom: 4 }}>ชื่อกลุ่ม</div>
-              <input type="text" value={editingGroup.name}
-                onChange={e => setEditingGroup({ ...editingGroup, name: e.target.value })}
-                placeholder="เช่น กลุ่มแอดมิน, ฝ่ายการเงิน, เจ้าของ"
-                className="input" />
-            </div>
-
-            {/* ── Telegram Config ─────────────────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div className="label">Telegram</div>
-              <button onClick={() => {
-                const el = document.getElementById('tg-help-' + editingGroup.id)
-                if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'
-              }} className="btn btn-ghost" style={{ fontSize: 11, height: 24, padding: '0 8px' }}>
-                ❓ วิธีหา Token + Chat ID
-              </button>
-            </div>
-
-            {/* คำแนะนำวิธีหา Bot Token + Chat ID */}
-            <div id={`tg-help-${editingGroup.id}`} style={{
-              display: 'none', background: 'var(--bg-elevated)', borderRadius: 8,
-              padding: 14, marginBottom: 12, fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)',
-            }}>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>📌 วิธีหา Bot Token</div>
-              <div>1. เปิด Telegram แล้วค้นหา <span style={{ color: 'var(--accent)' }}>@BotFather</span></div>
-              <div>2. พิมพ์ <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>/newbot</code> แล้วตั้งชื่อ Bot</div>
-              <div>3. BotFather จะส่ง Token กลับมา เช่น <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>123456:ABC-DEF...</code></div>
-              <div>4. คัดลอก Token มาใส่ช่อง Bot Token</div>
-
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 12, marginBottom: 6 }}>📌 วิธีหา Chat ID (กลุ่ม)</div>
-              <div>1. สร้างกลุ่ม Telegram แล้วเพิ่ม Bot เข้าไปในกลุ่ม</div>
-              <div>2. ส่งข้อความอะไรก็ได้ในกลุ่ม</div>
-              <div>3. เปิด URL นี้ในเบราว์เซอร์ (แทน TOKEN ด้วย Bot Token):</div>
-              <div style={{ margin: '4px 0', padding: '6px 8px', background: '#222', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all' }}>
-                https://api.telegram.org/bot<span style={{ color: '#f5a623' }}>YOUR_TOKEN</span>/getUpdates
-              </div>
-              <div>4. หา <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>{'"chat":{"id":-100xxx}'}</code> ในผลลัพธ์</div>
-              <div>5. คัดลอกตัวเลข (รวมเครื่องหมายลบ) มาใส่ช่อง Chat ID</div>
-
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 12, marginBottom: 6 }}>📌 วิธีหา Chat ID (ส่วนตัว)</div>
-              <div>1. ค้นหา <span style={{ color: 'var(--accent)' }}>@userinfobot</span> ใน Telegram</div>
-              <div>2. กด Start → Bot จะแสดง Chat ID ของคุณ</div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Bot Token</div>
-                <input type="text" value={editingGroup.botToken}
-                  onChange={e => setEditingGroup({ ...editingGroup, botToken: e.target.value })}
-                  placeholder="123456:ABC-DEF..." className="input" />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Chat ID / Group ID</div>
-                <input type="text" value={editingGroup.chatId}
-                  onChange={e => setEditingGroup({ ...editingGroup, chatId: e.target.value })}
-                  placeholder="-1001234567890" className="input" />
-              </div>
-            </div>
-
-            {/* ── จุดแจ้งเตือน (toggles) ──────────────────────────────────── */}
-            <div className="label" style={{ marginBottom: 8 }}>จุดแจ้งเตือน</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              {NOTIFY_POINTS.map(np => (
-                <div key={np.key} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 6,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>{np.icon}</span>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{np.label}</span>
-                  </div>
-                  <button
-                    onClick={() => setEditingGroup({
-                      ...editingGroup,
-                      enabled: { ...editingGroup.enabled, [np.key]: !editingGroup.enabled[np.key] },
-                    })}
-                    style={{
-                      width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer',
-                      background: editingGroup.enabled[np.key] ? 'var(--accent)' : '#333',
-                      position: 'relative', transition: 'background 0.2s',
-                    }}
-                  >
-                    <div style={{
-                      width: 16, height: 16, borderRadius: 8, background: 'white',
-                      position: 'absolute', top: 3, left: editingGroup.enabled[np.key] ? 21 : 3, transition: 'left 0.2s',
-                    }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Threshold (เดิมพัน/ถูกรางวัลยอดสูง) ─────────────────────── */}
-            {(editingGroup.enabled.on_large_bet || editingGroup.enabled.on_large_win) && (
-              <div style={{ marginBottom: 16 }}>
-                <div className="label" style={{ marginBottom: 8 }}>Threshold ยอดสูง</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {editingGroup.enabled.on_large_bet && (
-                    <div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>เดิมพันยอดสูงเกิน (฿)</div>
-                      <input type="number" value={editingGroup.largeBetThreshold}
-                        onChange={e => setEditingGroup({ ...editingGroup, largeBetThreshold: Number(e.target.value) })}
-                        className="input" />
-                    </div>
-                  )}
-                  {editingGroup.enabled.on_large_win && (
-                    <div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>ถูกรางวัลยอดสูงเกิน (฿)</div>
-                      <input type="number" value={editingGroup.largeWinThreshold}
-                        onChange={e => setEditingGroup({ ...editingGroup, largeWinThreshold: Number(e.target.value) })}
-                        className="input" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── ปุ่ม ─────────────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>ยกเลิก</button>
-              <button onClick={saveGroup} disabled={!editingGroup.name.trim()} className="btn btn-primary" style={{ flex: 1 }}>บันทึกกลุ่ม</button>
+      {/* ── Master Toggle: เปิด/ปิดทั้งระบบ ────────────────────────────── */}
+      <div className="card-surface" style={{ padding: 20, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>เปิดใช้งานระบบแจ้งเตือน</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              เมื่อเปิด ระบบจะส่ง notification ไปยัง Telegram ตามจุดที่เลือก
             </div>
           </div>
+          <Toggle checked={config.enabled} onChange={v => setConfig(c => ({ ...c, enabled: v }))} />
         </div>
-      )}
+      </div>
 
-      {/* ConfirmDialog */}
-      {confirmDlg && <ConfirmDialog {...confirmDlg} />}
+      {/* ── Telegram Config: Bot Token + Chat ID ──────────────────────── */}
+      <div className="card-surface" style={{ padding: 20, marginBottom: 16, opacity: config.enabled ? 1 : 0.5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div className="label">Telegram Bot</div>
+          <button onClick={() => setShowHelp(!showHelp)} className="btn btn-ghost" style={{ fontSize: 11, height: 24 }}>
+            {showHelp ? 'ซ่อนคำแนะนำ' : '❓ วิธีตั้งค่า'}
+          </button>
+        </div>
 
-      {/* Note */}
-      <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 8, fontSize: 12, color: 'var(--text-tertiary)' }}>
-        💡 แต่ละกลุ่มสามารถใช้ Bot Token เดียวกัน แต่ส่งไปคนละ Chat ID ได้ — เมื่อเชื่อม API จริง ระบบจะยิงแจ้งเตือนไปทุกกลุ่มที่เปิดใช้งาน
+        {/* คำแนะนำวิธีหา Bot Token + Chat ID */}
+        {showHelp && (
+          <div style={{
+            background: 'var(--bg-elevated)', borderRadius: 8,
+            padding: 14, marginBottom: 16, fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)',
+          }}>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>วิธีหา Bot Token</div>
+            <div>1. เปิด Telegram ค้นหา <span style={{ color: 'var(--accent)' }}>@BotFather</span></div>
+            <div>2. พิมพ์ <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3 }}>/newbot</code> แล้วตั้งชื่อ Bot</div>
+            <div>3. BotFather จะส่ง Token กลับมา</div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 12, marginBottom: 6 }}>วิธีหา Chat ID</div>
+            <div>1. เพิ่ม Bot เข้ากลุ่ม Telegram แล้วส่งข้อความ</div>
+            <div>2. เปิด URL: <code style={{ background: '#222', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>
+              https://api.telegram.org/bot[TOKEN]/getUpdates
+            </code></div>
+            <div>3. หา chat id ในผลลัพธ์ (เลขรวมเครื่องหมายลบ)</div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Bot Token</div>
+            <input className="input" placeholder="123456:ABC-DEF..." value={config.bot_token}
+              onChange={e => setConfig(c => ({ ...c, bot_token: e.target.value }))} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Chat ID / Group ID</div>
+            <input className="input" placeholder="-1001234567890" value={config.chat_id}
+              onChange={e => setConfig(c => ({ ...c, chat_id: e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── จุดแจ้งเตือน (Toggles) ───────────────────────────────────── */}
+      <div className="card-surface" style={{ padding: 20, opacity: config.enabled ? 1 : 0.5 }}>
+        <div className="label" style={{ marginBottom: 16 }}>จุดแจ้งเตือน</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {NOTIFY_TOGGLES.map(nt => (
+            <div key={nt.key} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 8,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{nt.icon}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{nt.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{nt.desc}</div>
+                </div>
+              </div>
+              <Toggle checked={config[nt.key] as boolean}
+                onChange={v => setConfig(c => ({ ...c, [nt.key]: v }))} />
+            </div>
+          ))}
+
+          {/* Threshold สำหรับยอดสูง */}
+          {config.on_large_win && (
+            <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                ยอดถูกรางวัลขั้นต่ำที่แจ้ง (บาท)
+              </div>
+              <input type="number" className="input" style={{ maxWidth: 200 }}
+                value={config.large_win_min || ''}
+                onChange={e => setConfig(c => ({ ...c, large_win_min: Number(e.target.value) }))} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  )
+}
+
+// ─── Toggle Component ─────────────────────────────────────────────────
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button onClick={() => onChange(!checked)} style={{
+      width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+      background: checked ? 'var(--accent)' : '#333', position: 'relative', transition: 'background 0.2s',
+      flexShrink: 0,
+    }}>
+      <div style={{
+        width: 18, height: 18, borderRadius: 9, background: 'white',
+        position: 'absolute', top: 3, left: checked ? 23 : 3, transition: 'left 0.2s',
+      }} />
+    </button>
   )
 }

@@ -382,3 +382,163 @@ export interface AutoBanRuleData {
   status: string
   lottery_type?: { id: number; name: string; code: string }
 }
+
+// =============================================================================
+// ⭐ Member Levels API — ระบบ level สมาชิก (Bronze→Platinum)
+// =============================================================================
+
+export interface MemberLevel {
+  id: number
+  agent_id: number
+  name: string
+  color: string
+  icon: string
+  sort_order: number
+  min_deposit: number
+  min_bets: number
+  commission_rate: number
+  cashback_rate: number
+  bonus_pct: number
+  max_withdraw_day: number
+  description: string
+  status: string
+  member_count: number
+  created_at: string
+  updated_at: string
+}
+
+export const memberLevelApi = {
+  /** ดึง level ทั้งหมด + จำนวนสมาชิก */
+  list: () => api.get('/member-levels'),
+
+  /** สร้าง level ใหม่ */
+  create: (data: Partial<MemberLevel>) => api.post('/member-levels', data),
+
+  /** แก้ไข level */
+  update: (id: number, data: Partial<MemberLevel>) => api.put(`/member-levels/${id}`, data),
+
+  /** ลบ level */
+  delete: (id: number) => api.delete(`/member-levels/${id}`),
+
+  /** จัดลำดับ levels */
+  reorder: (orders: { id: number; sort_order: number }[]) =>
+    api.put('/member-levels/reorder', { orders }),
+}
+
+// =============================================================================
+// ⭐ Promotions API — ระบบโปรโมชั่น
+// =============================================================================
+
+export interface Promotion {
+  id: number
+  agent_id: number
+  name: string
+  type: string
+  description: string
+  image_url: string
+  bonus_pct: number
+  max_bonus: number
+  min_deposit: number
+  turnover: number
+  max_per_member: number
+  max_total: number
+  used_count: number
+  start_date: string
+  end_date: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export const promotionApi = {
+  /** ดึงโปรโมชั่นทั้งหมด (filter: status, type) */
+  list: (params?: { status?: string; type?: string }) =>
+    api.get('/promotions', { params }),
+
+  /** สร้างโปรโมชั่น */
+  create: (data: Partial<Promotion>) => api.post('/promotions', data),
+
+  /** แก้ไขโปรโมชั่น */
+  update: (id: number, data: Partial<Promotion>) => api.put(`/promotions/${id}`, data),
+
+  /** เปลี่ยนสถานะ (active/inactive) */
+  updateStatus: (id: number, status: string) =>
+    api.put(`/promotions/${id}/status`, { status }),
+
+  /** ลบโปรโมชั่น (soft) */
+  delete: (id: number) => api.delete(`/promotions/${id}`),
+}
+
+// =============================================================================
+// ⭐ CMS API — แบนเนอร์ + ตัวอักษรวิ่ง
+// =============================================================================
+
+export interface CmsBanner {
+  id: number
+  title: string
+  image_url: string
+  link_url: string
+  sort_order: number
+  status: string
+  created_at: string
+}
+
+export const cmsApi = {
+  /** ดึงแบนเนอร์ทั้งหมด */
+  listBanners: () => api.get('/cms/banners'),
+
+  /** เพิ่มแบนเนอร์ */
+  createBanner: (data: Partial<CmsBanner>) => api.post('/cms/banners', data),
+
+  /** แก้ไขแบนเนอร์ */
+  updateBanner: (id: number, data: Partial<CmsBanner>) => api.put(`/cms/banners/${id}`, data),
+
+  /** ลบแบนเนอร์ */
+  deleteBanner: (id: number) => api.delete(`/cms/banners/${id}`),
+
+  /** จัดลำดับแบนเนอร์ */
+  reorderBanners: (orders: { id: number; sort_order: number }[]) =>
+    api.put('/cms/banners/reorder', { orders }),
+
+  /** ดึงข้อความ ticker */
+  getTicker: () => api.get('/cms/ticker'),
+
+  /** อัพเดทข้อความ ticker */
+  updateTicker: (ticker_text: string) => api.put('/cms/ticker', { ticker_text }),
+}
+
+// =============================================================================
+// ⭐ Notifications API — Telegram webhook
+// =============================================================================
+
+export interface NotifyConfig {
+  enabled: boolean
+  bot_token: string
+  chat_id: string
+  on_deposit: boolean
+  on_withdraw: boolean
+  on_new_member: boolean
+  on_large_win: boolean
+  large_win_min: number
+}
+
+export const notificationApi = {
+  /** ดึงการตั้งค่า notification */
+  getConfig: () => api.get('/notifications/config'),
+
+  /** บันทึกการตั้งค่า */
+  updateConfig: (data: NotifyConfig) => api.put('/notifications/config', data),
+
+  /** ทดสอบส่ง notification */
+  test: () => api.post('/notifications/test'),
+}
+
+// =============================================================================
+// ⭐ Member Credit Report API — รายงานเครดิตสมาชิก
+// =============================================================================
+
+export const memberCreditApi = {
+  /** ดึงรายงานเครดิตสมาชิก */
+  report: (params: { member_id?: number; q?: string; from?: string; to?: string; page?: number; per_page?: number }) =>
+    api.get('/reports/member-credit', { params }),
+}
