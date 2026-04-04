@@ -511,26 +511,44 @@ export const cmsApi = {
 // ⭐ Notifications API — Telegram webhook
 // =============================================================================
 
-export interface NotifyConfig {
-  enabled: boolean
+// ⭐ NotifyGroup — กลุ่มแจ้งเตือน 1 กลุ่ม (multi-group support)
+// แต่ละกลุ่มมี Bot Token + Chat ID + จุดแจ้งเตือนแยกกัน
+export interface NotifyGroup {
+  id: string
+  name: string
   bot_token: string
   chat_id: string
+  active: boolean
   on_deposit: boolean
   on_withdraw: boolean
+  on_deposit_approve: boolean
+  on_withdraw_approve: boolean
   on_new_member: boolean
+  on_result: boolean
   on_large_win: boolean
+  on_large_bet: boolean
+  on_login: boolean
   large_win_min: number
+  large_bet_min: number
 }
 
+/** @deprecated ใช้ NotifyGroup แทน — เก็บไว้สำหรับ backward compat */
+export type NotifyConfig = NotifyGroup
+
 export const notificationApi = {
-  /** ดึงการตั้งค่า notification */
+  /** ดึงกลุ่มแจ้งเตือนทั้งหมด */
+  getGroups: () => api.get('/notifications/config'),
+
+  /** บันทึกกลุ่มทั้งหมด (replace all) */
+  saveGroups: (groups: NotifyGroup[]) => api.put('/notifications/config', groups),
+
+  /** ทดสอบส่ง notification ไปกลุ่มเดียว */
+  test: (groupId?: string) => api.post('/notifications/test', { group_id: groupId }),
+
+  /** @deprecated ใช้ getGroups แทน */
   getConfig: () => api.get('/notifications/config'),
-
-  /** บันทึกการตั้งค่า */
-  updateConfig: (data: NotifyConfig) => api.put('/notifications/config', data),
-
-  /** ทดสอบส่ง notification */
-  test: () => api.post('/notifications/test'),
+  /** @deprecated ใช้ saveGroups แทน */
+  updateConfig: (data: NotifyGroup) => api.put('/notifications/config', [data]),
 }
 
 // =============================================================================
