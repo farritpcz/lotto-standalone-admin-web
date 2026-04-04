@@ -1,533 +1,386 @@
 /**
- * Admin — จัดการเลขอั้น (Number Ban Management)
+ * Admin — จัดการเลขอั้น (Number Bans) — Redesigned
  *
- * ฟีเจอร์:
- * - แสดงรายการเลขอั้นทั้งหมดใน admin-table
- * - เพิ่มเลขอั้นผ่าน modal form (ครบทุก field)
- * - ลบเลขอั้นแต่ละรายการ
- * - รองรับ 3 ประเภทการอั้น: full_ban / reduce_rate / max_amount
+ * ⭐ Redesign:
+ *   - Filter: ประเภทหวย (optgroup) + ประเภทแทง + ค้นหาเลข
+ *   - Quick add: กรอกหลายเลขพร้อมกัน (comma/space separated)
+ *   - Card-based display จัดกลุ่มตาม ban_type
+ *   - ConfirmDialog แทน browser confirm
+ *   - Stats summary (จำนวน full_ban / reduce_rate / max_amount)
  *
- * ความสัมพันธ์:
- * - เรียก banMgmtApi → standalone-admin-api (#5)
- * - เรียก lotteryMgmtApi.list() → ดึง dropdown ประเภทหวย
- * - provider-backoffice-admin-web (#10) มีหน้าคล้ายกัน
- *
- * Design System: Linear/Vercel dark theme
- * - ใช้ .page-container, .page-header, .card-surface
- * - ใช้ .admin-table สำหรับตาราง
- * - ใช้ .btn, .btn-primary, .btn-danger สำหรับปุ่ม
- * - ใช้ .input สำหรับ form fields
- * - ใช้ .badge-* สำหรับ status badges
+ * API: banMgmtApi.list(), .create(), .delete()
  */
 'use client'
+
 import { useEffect, useState, useCallback } from 'react'
 import { banMgmtApi, lotteryMgmtApi } from '@/lib/api'
 import Loading from '@/components/Loading'
+import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import { Search, Trash2, Plus, Ban, TrendingDown, BarChart3 } from 'lucide-react'
 
 // =============================================================================
-// TYPES — โครงสร้างข้อมูลเลขอั้น
+// Types
 // =============================================================================
 
-/** เลขอั้น 1 รายการ — มาจาก API */
-interface Ban {
-  id: number
-  number: string               // เลขที่อั้น เช่น "123", "99"
-  ban_type: string             // ประเภท: full_ban | reduce_rate | max_amount
-  reduced_rate: number         // rate ที่ลด (ใช้เมื่อ ban_type = reduce_rate)
-  max_amount: number           // จำนวนเงินสูงสุด (ใช้เมื่อ ban_type = max_amount)
-  lottery_type_id: number      // ID ประเภทหวย
-  bet_type_id: number          // ID ประเภทเดิมพัน
-  lottery_type_name?: string   // ชื่อประเภทหวย (join มาจาก API)
+interface BanItem {
+  id: number; number: string; ban_type: string
+  reduced_rate: number; max_amount: number
+  lottery_type_id: number; bet_type_id: number
+  lottery_type_name?: string
+  bet_type?: { name: string; code: string }
 }
 
-/** ประเภทหวย — มาจาก lotteryMgmtApi.list() */
-interface LotteryType {
-  id: number
-  name: string
-  code: string
-}
-
-/** ข้อมูลฟอร์มสำหรับเพิ่มเลขอั้น */
-interface BanFormData {
-  lottery_type_id: number
-  bet_type_id: string
-  number: string
-  ban_type: 'full_ban' | 'reduce_rate' | 'max_amount'
-  reduced_rate: number
-  max_amount: number
-}
+interface LotteryType { id: number; name: string; code: string; category?: string }
 
 // =============================================================================
-// CONSTANTS — ประเภทเดิมพัน (hardcode ตาม lotto-core)
+// Constants
 // =============================================================================
 
-/** รายการประเภทเดิมพันทั้งหมด */
 const BET_TYPES = [
-  { id: '3TOP', label: '3 ตัวบน' },
-  { id: '3TOD', label: '3 ตัวโต๊ด' },
-  { id: '2TOP', label: '2 ตัวบน' },
-  { id: '2BOTTOM', label: '2 ตัวล่าง' },
-  { id: 'RUN_TOP', label: 'วิ่งบน' },
-  { id: 'RUN_BOT', label: 'วิ่งล่าง' },
-] as const
+  { id: '3TOP', label: '3 ตัวบน' }, { id: '3TOD', label: '3 ตัวโต๊ด' },
+  { id: '3FRONT', label: '3 ตัวหน้า' }, { id: '3BOTTOM', label: '3 ตัวล่าง' },
+  { id: '2TOP', label: '2 ตัวบน' }, { id: '2BOTTOM', label: '2 ตัวล่าง' },
+  { id: 'RUN_TOP', label: 'วิ่งบน' }, { id: 'RUN_BOT', label: 'วิ่งล่าง' },
+]
+const BET_LABEL: Record<string, string> = Object.fromEntries(BET_TYPES.map(b => [b.id, b.label]))
 
-/** แปลง ban_type เป็นภาษาไทย */
-const BAN_TYPE_LABELS: Record<string, string> = {
-  full_ban: 'อั้นเต็ม',
-  reduce_rate: 'ลดเรท',
-  max_amount: 'จำกัดยอด',
+const BAN_CONFIG: Record<string, { label: string; badge: string; color: string; icon: typeof Ban }> = {
+  full_ban:    { label: 'อั้นเต็ม',  badge: 'badge-error',   color: '#ef4444', icon: Ban },
+  reduce_rate: { label: 'ลดเรท',    badge: 'badge-warning', color: '#fbbf24', icon: TrendingDown },
+  max_amount:  { label: 'จำกัดยอด', badge: 'badge-info',    color: '#60a5fa', icon: BarChart3 },
 }
 
-/** แปลง bet_type_id เป็นภาษาไทย */
-const BET_TYPE_LABELS: Record<string, string> = Object.fromEntries(
-  BET_TYPES.map(bt => [bt.id, bt.label])
-)
-
-/* จำนวนรายการต่อหน้า (pagination) */
-const PER_PAGE = 20
+const CATEGORIES = [
+  { key: 'thai', label: 'หวยไทย' }, { key: 'yeekee', label: 'ยี่กี' },
+  { key: 'lao', label: 'หวยลาว' }, { key: 'hanoi', label: 'หวยฮานอย' },
+  { key: 'malay', label: 'มาเลย์' }, { key: 'stock', label: 'หวยหุ้น' },
+]
 
 // =============================================================================
-// COMPONENT — BansPage
+// Component
 // =============================================================================
+
 export default function BansPage() {
-  // ----- State: ข้อมูลหลัก -----
-  const [bans, setBans] = useState<Ban[]>([])
+  const [bans, setBans] = useState<BanItem[]>([])
   const [lotteryTypes, setLotteryTypes] = useState<LotteryType[]>([])
   const [loading, setLoading] = useState(true)
-
-  // ----- State: pagination — หน้าปัจจุบัน + จำนวนรายการทั้งหมด -----
+  const [search, setSearch] = useState('')
+  const [filterLottery, setFilterLottery] = useState('')
+  const [filterBetType, setFilterBetType] = useState('')
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [dialog, setDialog] = useState<ConfirmDialogProps | null>(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
 
-  // ----- State: Modal เพิ่มเลขอั้น -----
-  const [showModal, setShowModal] = useState(false)
+  // ── Quick Add state ───────────────────────────────────────────
+  const [showAdd, setShowAdd] = useState(false)
+  const [addLotteryId, setAddLotteryId] = useState(0)
+  const [addBetType, setAddBetType] = useState('3TOP')
+  const [addNumbers, setAddNumbers] = useState('')
+  const [addBanType, setAddBanType] = useState<string>('full_ban')
+  const [addReducedRate, setAddReducedRate] = useState('')
+  const [addMaxAmount, setAddMaxAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [formData, setFormData] = useState<BanFormData>({
-    lottery_type_id: 0,
-    bet_type_id: '3TOP',
-    number: '',
-    ban_type: 'full_ban',
-    reduced_rate: 0,
-    max_amount: 0,
-  })
 
-  // ----- State: Feedback messages -----
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const PER_PAGE = 30
 
-  // ===== โหลดข้อมูลเลขอั้น — ส่ง page + per_page ไปให้ API =====
+  // ── Load data ─────────────────────────────────────────────────
   const loadBans = useCallback(() => {
     setLoading(true)
-    banMgmtApi.list({ page, per_page: PER_PAGE })
+    const params: Record<string, unknown> = { page, per_page: PER_PAGE }
+    if (filterLottery) params.lottery_type_id = Number(filterLottery)
+    banMgmtApi.list(params)
       .then(res => {
         setBans(res.data.data?.items || res.data.data || [])
         setTotal(res.data.data?.total || 0)
       })
-      .catch(() => setMessage({ type: 'error', text: 'โหลดข้อมูลเลขอั้นไม่สำเร็จ' }))
-      .finally(() => setLoading(false))
-  }, [page])
+      .catch(() => {}).finally(() => setLoading(false))
+  }, [page, filterLottery])
 
-  // ===== โหลดประเภทหวย (สำหรับ dropdown) =====
-  const loadLotteryTypes = useCallback(() => {
-    lotteryMgmtApi.list()
-      .then(res => {
-        const types = res.data.data || []
-        setLotteryTypes(types)
-        // ตั้ง default lottery_type_id ให้เป็นตัวแรก
-        if (types.length > 0) {
-          setFormData(prev => ({ ...prev, lottery_type_id: types[0].id }))
-        }
-      })
-      .catch(() => {})
+  useEffect(() => { loadBans() }, [loadBans])
+
+  useEffect(() => {
+    lotteryMgmtApi.list().then(res => {
+      const types = Array.isArray(res.data.data) ? res.data.data : (res.data.data?.items || [])
+      setLotteryTypes(types)
+      if (types.length > 0) setAddLotteryId(types[0].id)
+    }).catch(() => {})
   }, [])
 
-  // ===== เรียกโหลดข้อมูลตอน mount =====
   useEffect(() => {
-    loadBans()
-    loadLotteryTypes()
-  }, [loadBans, loadLotteryTypes])
-
-  // ===== ซ่อน message หลัง 3 วินาที =====
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 3000)
-      return () => clearTimeout(timer)
-    }
+    if (message) { const t = setTimeout(() => setMessage(null), 3000); return () => clearTimeout(t) }
   }, [message])
 
-  // ===== เปิด modal + reset form =====
-  const openModal = () => {
-    setFormData({
-      lottery_type_id: lotteryTypes[0]?.id || 0,
-      bet_type_id: '3TOP',
-      number: '',
-      ban_type: 'full_ban',
-      reduced_rate: 0,
-      max_amount: 0,
-    })
-    setShowModal(true)
+  // ── Filter ────────────────────────────────────────────────────
+  const filtered = bans.filter(b => {
+    if (search && !b.number.includes(search)) return false
+    if (filterBetType && (b.bet_type?.code || String(b.bet_type_id)) !== filterBetType) return false
+    return true
+  })
+
+  // ── Stats ─────────────────────────────────────────────────────
+  const stats = {
+    total: filtered.length,
+    full_ban: filtered.filter(b => b.ban_type === 'full_ban').length,
+    reduce_rate: filtered.filter(b => b.ban_type === 'reduce_rate').length,
+    max_amount: filtered.filter(b => b.ban_type === 'max_amount').length,
   }
 
-  // ===== บันทึกเลขอั้นใหม่ =====
-  const handleSubmit = async () => {
-    // Validate — ต้องกรอกเลข
-    if (!formData.number.trim()) {
-      setMessage({ type: 'error', text: 'กรุณากรอกเลขที่ต้องการอั้น' })
-      return
-    }
-
+  // ── Quick Add: submit หลายเลขพร้อมกัน ─────────────────────────
+  const handleQuickAdd = async () => {
+    const numbers = addNumbers.split(/[,\s]+/).map(n => n.trim()).filter(n => n.length > 0)
+    if (numbers.length === 0 || !addLotteryId) return
     setSubmitting(true)
-    try {
-      await banMgmtApi.create({
-        lottery_type_id: formData.lottery_type_id,
-        bet_type_id: formData.bet_type_id,
-        number: formData.number.trim(),
-        ban_type: formData.ban_type,
-        // ส่ง reduced_rate / max_amount ตาม ban_type ที่เลือก
-        ...(formData.ban_type === 'reduce_rate' && { reduced_rate: formData.reduced_rate }),
-        ...(formData.ban_type === 'max_amount' && { max_amount: formData.max_amount }),
-      })
-      setMessage({ type: 'success', text: `อั้นเลข "${formData.number}" สำเร็จ` })
-      setShowModal(false)
-      loadBans()  // รีโหลดตาราง
-    } catch {
-      setMessage({ type: 'error', text: 'เพิ่มเลขอั้นไม่สำเร็จ' })
-    } finally {
-      setSubmitting(false)
+    let success = 0
+    for (const num of numbers) {
+      try {
+        await banMgmtApi.create({
+          lottery_type_id: addLotteryId,
+          bet_type_id: addBetType,
+          number: num,
+          ban_type: addBanType,
+          ...(addBanType === 'reduce_rate' && { reduced_rate: Number(addReducedRate) }),
+          ...(addBanType === 'max_amount' && { max_amount: Number(addMaxAmount) }),
+        })
+        success++
+      } catch { /* skip */ }
     }
+    setMessage({ type: 'success', text: `อั้นสำเร็จ ${success}/${numbers.length} เลข` })
+    setAddNumbers('')
+    setShowAdd(false)
+    loadBans()
+    setSubmitting(false)
   }
 
-  // ===== ลบเลขอั้น =====
-  const handleDelete = async (ban: Ban) => {
-    if (!confirm(`ยืนยันลบเลขอั้น "${ban.number}" ?`)) return
-    try {
-      await banMgmtApi.delete(ban.id)
-      setMessage({ type: 'success', text: `ลบเลขอั้น "${ban.number}" แล้ว` })
-      loadBans()
-    } catch {
-      setMessage({ type: 'error', text: 'ลบเลขอั้นไม่สำเร็จ' })
-    }
+  // ── Delete ────────────────────────────────────────────────────
+  const handleDelete = (ban: BanItem) => {
+    setDialog({
+      title: 'ลบเลขอั้น',
+      message: `ลบเลขอั้น "${ban.number}" (${BAN_CONFIG[ban.ban_type]?.label || ban.ban_type})?`,
+      type: 'warning',
+      confirmLabel: 'ลบ',
+      onConfirm: async () => {
+        setDialog(null)
+        try { await banMgmtApi.delete(ban.id); setMessage({ type: 'success', text: `ลบ "${ban.number}" แล้ว` }); loadBans() }
+        catch { setMessage({ type: 'error', text: 'ลบไม่สำเร็จ' }) }
+      },
+      onCancel: () => setDialog(null),
+    })
   }
 
-  // ===== หา badge class ตาม ban_type =====
-  const getBanTypeBadge = (banType: string) => {
-    switch (banType) {
-      case 'full_ban': return 'badge badge-error'
-      case 'reduce_rate': return 'badge badge-warning'
-      case 'max_amount': return 'badge badge-info'
-      default: return 'badge badge-neutral'
-    }
-  }
+  const totalPages = Math.ceil(total / PER_PAGE)
 
-  // =========================================================================
-  // RENDER
-  // =========================================================================
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="page-container">
-      {/* ===== Page Header ===== */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className="page-header">
         <div>
-          <h1>จัดการเลขอั้น</h1>
-          <p className="label" style={{ marginTop: 4 }}>
-            {bans.length} รายการ
-          </p>
+          <h1>เลขอั้น</h1>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {total} รายการ
+            {stats.full_ban > 0 && <span style={{ marginLeft: 8, color: '#ef4444' }}>อั้นเต็ม {stats.full_ban}</span>}
+            {stats.reduce_rate > 0 && <span style={{ marginLeft: 8, color: '#fbbf24' }}>ลดเรท {stats.reduce_rate}</span>}
+            {stats.max_amount > 0 && <span style={{ marginLeft: 8, color: '#60a5fa' }}>จำกัดยอด {stats.max_amount}</span>}
+          </div>
         </div>
-        {/* ปุ่มเพิ่มเลขอั้น */}
-        <button className="btn btn-primary" onClick={openModal}>
-          + เพิ่มเลขอั้น
+        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+          <Plus size={14} style={{ marginRight: 4 }} /> อั้นเลข
         </button>
       </div>
 
-      {/* ===== Feedback Message ===== */}
+      {/* ── Message ─────────────────────────────────────────── */}
       {message && (
-        <div
-          className={`badge ${message.type === 'success' ? 'badge-success' : 'badge-error'}`}
-          style={{ marginBottom: 16, padding: '8px 16px', fontSize: 13 }}
-        >
-          {message.text}
+        <div style={{
+          background: message.type === 'success' ? 'var(--status-success-bg)' : 'var(--status-error-bg)',
+          color: message.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+          borderRadius: 8, padding: '8px 16px', marginBottom: 16, fontSize: 13,
+        }}>
+          {message.type === 'success' ? '\u2713 ' : '\u2717 '}{message.text}
         </div>
       )}
 
-      {/* ===== ตารางเลขอั้น ===== */}
+      {/* ── Filters ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* ค้นหาเลข */}
+        <div style={{ position: 'relative', flex: '0 0 160px' }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-tertiary)' }} />
+          <input className="input" placeholder="ค้นหาเลข..." value={search}
+            onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 32, height: 36 }} />
+        </div>
+        {/* ประเภทหวย */}
+        <select className="input" style={{ width: 'auto', minWidth: 200, height: 36 }} value={filterLottery}
+          onChange={e => { setFilterLottery(e.target.value); setPage(1) }}>
+          <option value="">ทุกประเภทหวย</option>
+          {CATEGORIES.map(cat => {
+            const items = lotteryTypes.filter(lt => lt.category === cat.key)
+            if (items.length === 0) return null
+            return <optgroup key={cat.key} label={cat.label}>{items.map(lt => <option key={lt.id} value={lt.id}>{lt.name}</option>)}</optgroup>
+          })}
+        </select>
+        {/* ประเภทแทง */}
+        <select className="input" style={{ width: 'auto', minWidth: 140, height: 36 }} value={filterBetType}
+          onChange={e => setFilterBetType(e.target.value)}>
+          <option value="">ทุกประเภทแทง</option>
+          {BET_TYPES.map(bt => <option key={bt.id} value={bt.id}>{bt.label}</option>)}
+        </select>
+        {(search || filterLottery || filterBetType) && (
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => { setSearch(''); setFilterLottery(''); setFilterBetType('') }}>
+            ล้างตัวกรอง
+          </button>
+        )}
+      </div>
+
+      {/* ── Table ──────────────────────────────────────────── */}
       <div className="card-surface" style={{ overflow: 'hidden' }}>
-        {loading ? (
-          /* Loading state */
-          <Loading inline text="กำลังโหลด..." />
-        ) : bans.length === 0 ? (
-          /* Empty state — ยังไม่มีเลขอั้น */
+        {loading ? <Loading inline text="กำลังโหลด..." /> : filtered.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-            ยังไม่มีเลขอั้น — กดปุ่ม &quot;เพิ่มเลขอั้น&quot; เพื่อเริ่มต้น
+            {search ? `ไม่พบเลข "${search}"` : 'ยังไม่มีเลขอั้น'}
           </div>
         ) : (
-          /* ตารางข้อมูล */
           <table className="admin-table">
             <thead>
               <tr>
-                <th>เลขอั้น</th>
+                <th style={{ width: 80 }}>เลข</th>
                 <th>ประเภทหวย</th>
-                <th>ประเภทเดิมพัน</th>
-                <th>ประเภทอั้น</th>
+                <th>ประเภทแทง</th>
+                <th>การอั้น</th>
                 <th>รายละเอียด</th>
-                <th style={{ textAlign: 'right' }}>จัดการ</th>
+                <th style={{ textAlign: 'right', width: 60 }}></th>
               </tr>
             </thead>
             <tbody>
-              {bans.map(ban => (
-                <tr key={ban.id}>
-                  {/* เลขอั้น — monospace font ให้อ่านง่าย */}
-                  <td className="mono" style={{ fontWeight: 600, fontSize: 15 }}>
-                    {ban.number}
-                  </td>
-
-                  {/* ประเภทหวย */}
-                  <td className="secondary">
-                    {ban.lottery_type_name || `ID: ${ban.lottery_type_id}`}
-                  </td>
-
-                  {/* ประเภทเดิมพัน */}
-                  <td className="secondary">
-                    {BET_TYPE_LABELS[ban.bet_type_id] || ban.bet_type_id}
-                  </td>
-
-                  {/* Badge ประเภทอั้น */}
-                  <td>
-                    <span className={getBanTypeBadge(ban.ban_type)}>
-                      {BAN_TYPE_LABELS[ban.ban_type] || ban.ban_type}
-                    </span>
-                  </td>
-
-                  {/* รายละเอียดเพิ่มเติม (ถ้ามี) */}
-                  <td className="secondary mono">
-                    {ban.ban_type === 'reduce_rate' && `เรท: ${ban.reduced_rate}`}
-                    {ban.ban_type === 'max_amount' && `สูงสุด: ฿${ban.max_amount?.toLocaleString()}`}
-                    {ban.ban_type === 'full_ban' && '—'}
-                  </td>
-
-                  {/* ปุ่มลบ */}
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => handleDelete(ban)}
-                    >
-                      ลบ
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(ban => {
+                const cfg = BAN_CONFIG[ban.ban_type] || BAN_CONFIG.full_ban
+                return (
+                  <tr key={ban.id}>
+                    <td>
+                      <span style={{
+                        fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: 16,
+                        color: cfg.color, letterSpacing: 1,
+                      }}>{ban.number}</span>
+                    </td>
+                    <td className="secondary" style={{ fontSize: 12 }}>{ban.lottery_type_name || `ID:${ban.lottery_type_id}`}</td>
+                    <td className="secondary" style={{ fontSize: 12 }}>{BET_LABEL[ban.bet_type?.code || String(ban.bet_type_id)] || ban.bet_type?.name || ban.bet_type_id}</td>
+                    <td><span className={`badge ${cfg.badge}`}>{cfg.label}</span></td>
+                    <td className="mono secondary" style={{ fontSize: 12 }}>
+                      {ban.ban_type === 'reduce_rate' && `เรท x${ban.reduced_rate}`}
+                      {ban.ban_type === 'max_amount' && `Max ฿${ban.max_amount?.toLocaleString()}`}
+                      {ban.ban_type === 'full_ban' && '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-ghost" style={{ padding: '4px 6px', color: 'var(--status-error)' }}
+                        onClick={() => handleDelete(ban)} title="ลบ">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
-
-        {/* ── Pagination — แบ่งหน้าแสดงผล ──────────────────────────────── */}
-        {total > PER_PAGE && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="btn btn-secondary">← ก่อนหน้า</button>
-            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page} / {Math.ceil(total / PER_PAGE)}</span>
-            <button onClick={() => setPage(p => p+1)} disabled={bans.length < PER_PAGE} className="btn btn-secondary">ถัดไป →</button>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 16, borderTop: '1px solid var(--border)' }}>
+            <button className="btn btn-ghost" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>ก่อนหน้า</button>
+            <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>หน้า {page}/{totalPages}</span>
+            <button className="btn btn-ghost" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page >= totalPages}>ถัดไป</button>
           </div>
         )}
       </div>
 
-      {/* =================================================================
-       * MODAL: เพิ่มเลขอั้น
-       * position: fixed overlay + centered card
-       * ================================================================= */}
-      {showModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.6)',
-            backdropFilter: 'blur(4px)',
-          }}
-          onClick={() => setShowModal(false)}  // คลิกนอก modal เพื่อปิด
-        >
-          <div
-            className="card-surface"
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              padding: 24,
-              margin: 16,
-            }}
-            onClick={e => e.stopPropagation()}  // ป้องกันปิดเมื่อคลิกใน modal
-          >
-            {/* Modal Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-                เพิ่มเลขอั้น
-              </h2>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setShowModal(false)}
-                style={{ width: 32, height: 32, padding: 0 }}
-              >
-                ✕
-              </button>
-            </div>
+      {/* ── Quick Add Modal ────────────────────────────────── */}
+      {showAdd && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowAdd(false) }}>
+          <div className="card-surface" style={{ width: '100%', maxWidth: 500, padding: 24, animation: 'fadeSlideUp 0.2s ease' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>อั้นเลข</h2>
 
-            {/* ===== Form Fields ===== */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* 1) ประเภทหวย — dropdown จาก API */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: 6 }}>
-                  ประเภทหวย
-                </label>
-                <select
-                  className="input"
-                  value={formData.lottery_type_id}
-                  onChange={e => setFormData(prev => ({ ...prev, lottery_type_id: Number(e.target.value) }))}
-                >
-                  {lotteryTypes.map(lt => (
-                    <option key={lt.id} value={lt.id}>
-                      {lt.name} ({lt.code})
-                    </option>
-                  ))}
-                  {lotteryTypes.length === 0 && (
-                    <option value={0}>โหลดประเภทหวยไม่สำเร็จ</option>
-                  )}
-                </select>
-              </div>
-
-              {/* 2) ประเภทเดิมพัน — hardcode list */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: 6 }}>
-                  ประเภทเดิมพัน
-                </label>
-                <select
-                  className="input"
-                  value={formData.bet_type_id}
-                  onChange={e => setFormData(prev => ({ ...prev, bet_type_id: e.target.value }))}
-                >
-                  {BET_TYPES.map(bt => (
-                    <option key={bt.id} value={bt.id}>
-                      {bt.label} ({bt.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 3) เลขที่ต้องการอั้น */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: 6 }}>
-                  เลขที่ต้องการอั้น
-                </label>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="เช่น 123, 99, 5"
-                  value={formData.number}
-                  onChange={e => setFormData(prev => ({ ...prev, number: e.target.value }))}
-                  autoFocus
-                />
-              </div>
-
-              {/* 4) ประเภทการอั้น — radio buttons */}
-              <div>
-                <label className="label" style={{ display: 'block', marginBottom: 8 }}>
-                  ประเภทการอั้น
-                </label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {/* อั้นเต็ม */}
-                  <label style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13,
-                  }}>
-                    <input
-                      type="radio"
-                      name="ban_type"
-                      checked={formData.ban_type === 'full_ban'}
-                      onChange={() => setFormData(prev => ({ ...prev, ban_type: 'full_ban' }))}
-                    />
-                    อั้นเต็ม
-                  </label>
-
-                  {/* ลดเรท */}
-                  <label style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13,
-                  }}>
-                    <input
-                      type="radio"
-                      name="ban_type"
-                      checked={formData.ban_type === 'reduce_rate'}
-                      onChange={() => setFormData(prev => ({ ...prev, ban_type: 'reduce_rate' }))}
-                    />
-                    ลดเรท
-                  </label>
-
-                  {/* จำกัดยอด */}
-                  <label style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13,
-                  }}>
-                    <input
-                      type="radio"
-                      name="ban_type"
-                      checked={formData.ban_type === 'max_amount'}
-                      onChange={() => setFormData(prev => ({ ...prev, ban_type: 'max_amount' }))}
-                    />
-                    จำกัดยอด
-                  </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* ประเภทหวย + ประเภทแทง */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 4 }}>ประเภทหวย</label>
+                  <select className="input" value={addLotteryId} onChange={e => setAddLotteryId(Number(e.target.value))}>
+                    {CATEGORIES.map(cat => {
+                      const items = lotteryTypes.filter(lt => lt.category === cat.key)
+                      if (items.length === 0) return null
+                      return <optgroup key={cat.key} label={cat.label}>{items.map(lt => <option key={lt.id} value={lt.id}>{lt.name}</option>)}</optgroup>
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" style={{ display: 'block', marginBottom: 4 }}>ประเภทแทง</label>
+                  <select className="input" value={addBetType} onChange={e => setAddBetType(e.target.value)}>
+                    {BET_TYPES.map(bt => <option key={bt.id} value={bt.id}>{bt.label}</option>)}
+                  </select>
                 </div>
               </div>
 
-              {/* 5) Reduced Rate — แสดงเมื่อเลือก "ลดเรท" */}
-              {formData.ban_type === 'reduce_rate' && (
+              {/* เลขที่ต้องการอั้น (หลายเลข) */}
+              <div>
+                <label className="label" style={{ display: 'block', marginBottom: 4 }}>เลขที่ต้องการอั้น</label>
+                <textarea className="input" rows={3} placeholder="กรอกหลายเลข คั่นด้วยช่องว่าง หรือ comma&#10;เช่น: 123 456 789 หรือ 123,456,789"
+                  value={addNumbers} onChange={e => setAddNumbers(e.target.value)}
+                  style={{ resize: 'vertical', fontFamily: 'var(--font-mono, monospace)', fontSize: 15, lineHeight: 1.6 }} />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  {addNumbers.split(/[,\s]+/).filter(n => n.trim().length > 0).length} เลข
+                </div>
+              </div>
+
+              {/* ประเภทการอั้น */}
+              <div>
+                <label className="label" style={{ display: 'block', marginBottom: 8 }}>ประเภทการอั้น</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {Object.entries(BAN_CONFIG).map(([key, cfg]) => {
+                    const Icon = cfg.icon
+                    const active = addBanType === key
+                    return (
+                      <button key={key} onClick={() => setAddBanType(key)} style={{
+                        flex: 1, padding: '10px 8px', borderRadius: 8, border: `1.5px solid ${active ? cfg.color : 'var(--border)'}`,
+                        background: active ? `color-mix(in srgb, ${cfg.color} 10%, var(--bg-surface))` : 'var(--bg-surface)',
+                        color: active ? cfg.color : 'var(--text-secondary)', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: active ? 600 : 400,
+                        transition: 'all 0.15s',
+                      }}>
+                        <Icon size={16} />
+                        {cfg.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Conditional fields */}
+              {addBanType === 'reduce_rate' && (
                 <div>
-                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>
-                    เรทที่ลด (บาท)
-                  </label>
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="เช่น 500"
-                    value={formData.reduced_rate || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, reduced_rate: Number(e.target.value) }))}
-                  />
+                  <label className="label" style={{ display: 'block', marginBottom: 4 }}>เรทที่ลดเหลือ</label>
+                  <input className="input" type="number" placeholder="เช่น 500" value={addReducedRate}
+                    onChange={e => setAddReducedRate(e.target.value)} style={{ fontFamily: 'var(--font-mono, monospace)' }} />
                 </div>
               )}
-
-              {/* 6) Max Amount — แสดงเมื่อเลือก "จำกัดยอด" */}
-              {formData.ban_type === 'max_amount' && (
+              {addBanType === 'max_amount' && (
                 <div>
-                  <label className="label" style={{ display: 'block', marginBottom: 6 }}>
-                    จำนวนเงินสูงสุด (บาท)
-                  </label>
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="เช่น 10000"
-                    value={formData.max_amount || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, max_amount: Number(e.target.value) }))}
-                  />
+                  <label className="label" style={{ display: 'block', marginBottom: 4 }}>จำนวนเงินสูงสุด (฿)</label>
+                  <input className="input" type="number" placeholder="เช่น 10000" value={addMaxAmount}
+                    onChange={e => setAddMaxAmount(e.target.value)} style={{ fontFamily: 'var(--font-mono, monospace)' }} />
                 </div>
               )}
             </div>
 
-            {/* ===== Modal Footer — ปุ่ม ยกเลิก / บันทึก ===== */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowModal(false)}
-              >
-                ยกเลิก
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? 'กำลังบันทึก...' : 'บันทึก'}
+              <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>ยกเลิก</button>
+              <button className="btn btn-primary" onClick={handleQuickAdd}
+                disabled={submitting || addNumbers.trim().length === 0 || !addLotteryId}>
+                {submitting ? 'กำลังอั้น...' : `อั้น ${addNumbers.split(/[,\s]+/).filter(n => n.trim().length > 0).length} เลข`}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Confirm Dialog ──────────────────────────────────── */}
+      {dialog && <ConfirmDialog {...dialog} />}
     </div>
   )
 }
