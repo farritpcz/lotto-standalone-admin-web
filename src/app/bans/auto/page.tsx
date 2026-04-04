@@ -442,21 +442,47 @@ export default function AutoBanPage() {
         )}
       </div>
 
-      {/* ⭐ Tab ประเภทหวย */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {lotteryTypes.map(lt => (
-          <button
-            key={lt.id}
-            onClick={() => setSelectedType(lt)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              selectedType?.id === lt.id
-                ? 'bg-[var(--accent-primary)] text-white shadow-md'
-                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
-            }`}
-          >
-            {lt.name}
-          </button>
-        ))}
+      {/* ⭐ ตัวเลือกประเภทหวย — dropdown จัดกลุ่มตาม category */}
+      <div className="mb-4">
+        <label className="text-[11px] font-semibold text-[var(--text-tertiary)] mb-1 block">เลือกประเภทหวย</label>
+        <select
+          className="input"
+          style={{ width: 'auto', minWidth: 260, height: 40, fontSize: 14, fontWeight: 600 }}
+          value={selectedType?.id || ''}
+          onChange={e => {
+            const id = Number(e.target.value)
+            setSelectedType(lotteryTypes.find(lt => lt.id === id) || null)
+          }}
+        >
+          {(() => {
+            const cats = [
+              { key: 'thai', label: 'หวยไทย' }, { key: 'yeekee', label: 'ยี่กี' },
+              { key: 'lao', label: 'หวยลาว' }, { key: 'hanoi', label: 'หวยฮานอย' },
+              { key: 'malay', label: 'มาเลย์' }, { key: 'stock', label: 'หวยหุ้น' },
+            ]
+            return cats.map(cat => {
+              const items = lotteryTypes.filter(lt => (lt as LotteryType & { category?: string }).code?.startsWith(cat.key.toUpperCase()) || false)
+              // fallback: group by name pattern
+              const grouped = lotteryTypes.filter(lt => {
+                const c = (lt as LotteryType & { category?: string }) as Record<string, unknown>
+                return c.category === cat.key || (cat.key === 'stock' && lt.name.includes('หุ้น'))
+                  || (cat.key === 'thai' && (lt.name.includes('รัฐบาล') || lt.name.includes('ธกส') || lt.name.includes('ออมสิน')))
+                  || (cat.key === 'yeekee' && lt.name.includes('ยี่กี'))
+                  || (cat.key === 'lao' && lt.name.includes('ลาว'))
+                  || (cat.key === 'hanoi' && lt.name.includes('ฮานอย'))
+                  || (cat.key === 'malay' && lt.name.includes('มาเลย์'))
+              })
+              if (grouped.length === 0) return null
+              return (
+                <optgroup key={cat.key} label={`── ${cat.label} ──`}>
+                  {grouped.map(lt => (
+                    <option key={lt.id} value={lt.id}>{lt.name}</option>
+                  ))}
+                </optgroup>
+              )
+            })
+          })()}
+        </select>
       </div>
 
       {/* กฎอั้นของประเภทหวยที่เลือก */}
