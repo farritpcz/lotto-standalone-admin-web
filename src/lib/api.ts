@@ -159,18 +159,26 @@ export const agentThemeApi = {
 // Deposit Requests — อนุมัติ/ปฏิเสธคำขอฝากเงิน
 // =============================================================================
 export const depositApi = {
+  /** ดึงรายการฝาก (params: page, per_page, status, q) */
   list: (params?: Record<string, unknown>) => api.get('/deposits', { params }),
+  /** อนุมัติฝาก — เพิ่มเงิน + โบนัสฝากครั้งแรก (ถ้ามี) */
   approve: (id: number) => api.put(`/deposits/${id}/approve`),
-  reject: (id: number) => api.put(`/deposits/${id}/reject`),
+  /** ปฏิเสธฝาก — ไม่เพิ่มเงิน */
+  reject: (id: number, reason?: string) => api.put(`/deposits/${id}/reject`, { reason }),
+  /** ยกเลิกฝากที่อนุมัติแล้ว — หักเงินคืน */
+  cancel: (id: number, reason?: string) => api.put(`/deposits/${id}/cancel`, { reason }),
 }
 
 // =============================================================================
 // Withdraw Requests — อนุมัติ/ปฏิเสธคำขอถอนเงิน
 // =============================================================================
 export const withdrawApi = {
+  /** ดึงรายการถอน (params: page, per_page, status, q) */
   list: (params?: Record<string, unknown>) => api.get('/withdrawals', { params }),
-  approve: (id: number) => api.put(`/withdrawals/${id}/approve`),
-  reject: (id: number) => api.put(`/withdrawals/${id}/reject`),
+  /** อนุมัติถอน — mode: "auto" (RKAUTO) หรือ "manual" (โอนเอง) */
+  approve: (id: number, mode: 'auto' | 'manual') => api.put(`/withdrawals/${id}/approve`, { mode }),
+  /** ปฏิเสธถอน — refund=true คืนเงิน, false=ไม่คืน (กรณีทุจริต) */
+  reject: (id: number, refund: boolean, reason?: string) => api.put(`/withdrawals/${id}/reject`, { refund, reason }),
 }
 
 // =============================================================================
