@@ -25,6 +25,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, ArrowDownUp, ClipboardList, Receipt,
   Star, Gift, BarChart3, Link2, UsersRound, Globe, FileText,
   Settings, CreditCard, Bell, ChevronLeft, ChevronRight,
+  GitBranch, TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -69,6 +70,13 @@ export const menuGroups: { label: string; items: { href: string; label: string; 
     ],
   },
   {
+    label: 'สายงาน',
+    items: [
+      { href: '/downline', label: 'จัดการสายงาน', icon: GitBranch },
+      { href: '/downline/profits', label: 'กำไรสายงาน', icon: TrendingUp },
+    ],
+  },
+  {
     label: 'ระบบ',
     items: [
       { href: '/reports', label: 'รายงาน', icon: BarChart3 },
@@ -105,6 +113,14 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+  // ⭐ ตรวจว่าเป็น node user (สายงาน) หรือไม่ — จำกัดเมนูที่เห็น
+  const [isNodeUser, setIsNodeUser] = useState(false)
+  const [nodeName, setNodeName] = useState('')
+  useEffect(() => {
+    const ut = localStorage.getItem('user_type')
+    setIsNodeUser(ut === 'node')
+    setNodeName(localStorage.getItem('node_name') || '')
+  }, [])
 
   // Collapse state — อ่านจาก localStorage ตอน mount
   const [collapsed, setCollapsed] = useState(false)
@@ -133,6 +149,12 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
 
   const handleLogout = () => {
     fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+    // ⭐ ลบ user type flags
+    localStorage.removeItem('user_type')
+    localStorage.removeItem('node_id')
+    localStorage.removeItem('node_role')
+    localStorage.removeItem('node_name')
+    localStorage.removeItem('share_percent')
     window.location.href = '/login'
   }
 
@@ -170,14 +192,22 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
           }}>L</div>
           {!isCollapsed && (
             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-              LOTTO Admin
+              {isNodeUser ? nodeName || 'สายงาน' : 'LOTTO Admin'}
             </span>
           )}
         </div>
 
         {/* ── Nav groups ────────────────────────────────────────────────────── */}
         <nav style={{ flex: 1, padding: isCollapsed ? '4px 4px' : '4px 8px' }}>
-          {menuGroups.map((group, gi) => (
+          {menuGroups.map((group, gi) => {
+            // ⭐ node user: ซ่อนเมนูที่ไม่เกี่ยว (กรอกผล — ห้ามเว็บกรอกผลเอง)
+            const nodeHiddenPaths = ['/results']
+            const filteredItems = isNodeUser
+              ? group.items.filter(item => !nodeHiddenPaths.includes(item.href))
+              : group.items
+            if (filteredItems.length === 0) return null
+
+            return (
             <div key={group.label} style={{ marginBottom: 16 }}>
               {/* Group label — ซ่อนเมื่อ collapsed */}
               {!isCollapsed && (
@@ -198,7 +228,7 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
               )}
 
               {/* Items */}
-              {group.items.map((item, ii) => {
+              {filteredItems.map((item, ii) => {
                 const isActive = pathname === item.href
                 const badgeKey = (item as { badge?: string }).badge
                 const badgeCount = badgeKey ? badges[badgeKey] || 0 : 0
@@ -257,7 +287,8 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
                 )
               })}
             </div>
-          ))}
+          );
+          })}
         </nav>
 
         {/* ── Footer: Collapse toggle + Logout ─────────────────────────────── */}

@@ -23,8 +23,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0)
 
   useEffect(() => {
-    // ข้ามถ้าอยู่ที่ login page
-    if (pathname === '/login') return
+    // ข้ามถ้าอยู่ที่ login page, node portal, หรือเป็น node user
+    if (pathname === '/login' || pathname?.startsWith('/node')) return
+    if (typeof window !== 'undefined' && localStorage.getItem('user_type') === 'node') return
 
     // ⭐ Validate session + fetch pending counts
     // ถ้า cookie หมดอายุ → API return 401 → interceptor redirect /login
@@ -38,8 +39,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     })
   }, [pathname, router])
 
-  // Login page — no sidebar (ยังคงมี toast ให้ใช้)
-  if (pathname === '/login') {
+  // Login page + Node portal — no sidebar (standalone layout)
+  if (pathname === '/login' || pathname?.startsWith('/node')) {
     return <ToastProvider>{children}</ToastProvider>
   }
 

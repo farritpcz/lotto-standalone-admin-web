@@ -43,8 +43,9 @@ const createApiClient = (): AxiosInstance => {
     (error) => {
       if (error.response?.status === 401 && typeof window !== 'undefined') {
         // ⭐ Cookie หมดอายุ/invalid → redirect login
-        if (!window.location.pathname.startsWith('/login')) {
-          // ลบ old localStorage token ที่อาจค้างจากก่อน migration
+        // ข้าม: หน้า /login (กำลัง login อยู่) + หน้า /node/* (ใช้ node_token แยก)
+        const path = window.location.pathname
+        if (!path.startsWith('/login') && !path.startsWith('/node')) {
           try { localStorage.removeItem('admin_token') } catch {}
           window.location.href = '/login'
         }
@@ -289,6 +290,182 @@ export interface CommissionAdjustment {
   created_at: string
   member?: { id: number; username: string }
   admin?: { id: number; username: string }
+}
+
+// =============================================================================
+// ⭐ Node Portal API — portal สำหรับ agent node (แยกจาก admin)
+//
+// ใช้ JWT cookie "node_token" (แยกจาก admin_token)
+// กฎสิทธิ์:
+//   - เห็นทั้งสาย (ancestors + self + descendants)
+//   - แก้ไขได้เฉพาะลูกตรง (parent_id = ตัวเอง)
+//   - หลาน/เหลน = read-only
+// =============================================================================
+
+/** TreeNode — node พร้อม editable flag (จาก /node/tree) */
+export interface TreeNodeWithEditable extends AgentNode {
+  editable: boolean
+  children: TreeNodeWithEditable[]
+}
+
+export const nodeAuthApi = {
+  /** Login ด้วย username/password จาก agent_nodes */
+  login: (data: { username: string; password: string }) =>
+    api.post('/node/auth/login', data),
+  /** Logout — ลบ node_token cookie */
+  logout: () => api.post('/node/auth/logout'),
+}
+
+export const nodePortalApi = {
+  /** ดูข้อมูลตัวเอง */
+  getMe: () => api.get('/node/me'),
+  /** ดู tree ที่เกี่ยวข้อง (ancestors + self + descendants, พร้อม editable flag) */
+  getTree: () => api.get('/node/tree'),
+  /** ดูลูกตรง (แก้ไขได้) */
+  listChildren: () => api.get('/node/children'),
+  /** สร้างลูกตรง */
+  createChild: (data: {
+    name: string; username: string; password: string; share_percent: number;
+    phone?: string; line_id?: string; note?: string
+  }) => api.post('/node/children', data),
+  /** แก้ไขลูกตรง (403 ถ้าไม่ใช่ลูกตรง) */
+  updateChild: (id: number, data: Record<string, unknown>) =>
+    api.put(`/node/children/${id}`, data),
+  /** ลบลูกตรง (403 ถ้าไม่ใช่ลูกตรง) */
+  deleteChild: (id: number) => api.delete(`/node/children/${id}`),
+  /** ดูกำไร/ขาดทุน */
+  getProfits: (params?: { date_from?: string; date_to?: string; page?: number; per_page?: number }) =>
+    api.get('/node/profits', { params }),
+}
+
+// =============================================================================
+// ⭐ Agent Downline API — ระบบปล่อยสาย (Hierarchical Profit Sharing)
+//
+// โครงสร้าง: admin(100%) → share_holder → senior → master → agent → agent_downline
+// กำไร = ส่วนต่าง % ระหว่างตัวเองกับลูก
+//
+// Routes (admin-api #5):
+//   GET  /downline/tree                      → tree ทั้งหมด
+//   CRUD /downline/nodes                     → จัดการ node
+//   GET  /downline/nodes/:id/commission      → ดู % แยกหวย
+//   PUT  /downline/nodes/:id/commission      → ตั้ง % แยกหวย
+//   GET  /downline/profits                   → รายงานกำไรรวม
+//   GET  /downline/profits/:nodeId           → รายงานกำไร node
+// =============================================================================
+
+/** AgentNode — 1 node ในสายงาน */
+export interface AgentNode {
+  id: number
+  agent_id: number
+  parent_id: number | null
+  role: 'admin' | 'share_holder' | 'senior' | 'master' | 'agent' | 'agent_downline'
+  name: string
+  username: string
+  depth: number
+  path: string
+  share_percent: number
+  phone: string
+  line_id: string
+  note: string
+  status: string
+  created_at: string
+  updated_at: string
+  // Computed
+  children?: AgentNode[]
+  member_count: number
+  child_count: number
+  parent?: AgentNode
+}
+
+/** AgentNodeCommissionSetting — override % ต่อประเภทหวย */
+export interface NodeCommissionSetting {
+  id: number
+  agent_node_id: number
+  lottery_type: string
+  share_percent: number
+}
+
+/** AgentProfitTransaction — กำไร/ขาดทุนของ 1 node จาก 1 bet */
+export interface AgentProfitTx {
+  id: number
+  round_id: number
+  bet_id: number
+  agent_node_id: number
+  from_node_id: number | null
+  member_id: number
+  bet_amount: number
+  net_result: number
+  my_percent: number
+  child_percent: number
+  diff_percent: number
+  profit_amount: number
+  created_at: string
+  agent_node?: AgentNode
+}
+
+/** ProfitSummary — สรุปกำไรรวมของ 1 node */
+export interface ProfitSummaryRow {
+  agent_node_id: number
+  node_name: string
+  node_role: string
+  share_percent: number
+  total_profit: number
+  total_bets: number
+}
+
+export const downlineApi = {
+  /** ดึง tree ทั้งหมด (hierarchical, nested children) */
+  getTree: (params?: { agent_id?: number }) =>
+    api.get('/downline/tree', { params }),
+
+  /** ดึง nodes แบบ flat (paginated) */
+  listNodes: (params?: { page?: number; per_page?: number; q?: string; role?: string; parent_id?: number; status?: string }) =>
+    api.get('/downline/nodes', { params }),
+
+  /** ดึง node detail + children ชั้นเดียว */
+  getNode: (id: number) => api.get(`/downline/nodes/${id}`),
+
+  /** สร้าง node ใหม่ */
+  createNode: (data: {
+    parent_id: number | null
+    name: string
+    username: string
+    password: string
+    share_percent: number
+    role?: string
+    phone?: string
+    line_id?: string
+    note?: string
+  }) => api.post('/downline/nodes', data),
+
+  /** แก้ไข node (partial update) */
+  updateNode: (id: number, data: Partial<{
+    name: string
+    share_percent: number
+    phone: string
+    line_id: string
+    note: string
+    status: string
+    password: string
+  }>) => api.put(`/downline/nodes/${id}`, data),
+
+  /** ลบ node (ต้องไม่มีลูก/สมาชิก) */
+  deleteNode: (id: number) => api.delete(`/downline/nodes/${id}`),
+
+  /** ดู commission settings (% แยกหวย) */
+  getCommission: (nodeId: number) => api.get(`/downline/nodes/${nodeId}/commission`),
+
+  /** ตั้ง commission settings (% แยกหวย) */
+  updateCommission: (nodeId: number, settings: { lottery_type: string; share_percent: number }[]) =>
+    api.put(`/downline/nodes/${nodeId}/commission`, { settings }),
+
+  /** รายงานกำไรรวมทุก node */
+  getProfits: (params?: { date_from?: string; date_to?: string; node_id?: number; page?: number; per_page?: number }) =>
+    api.get('/downline/profits', { params }),
+
+  /** รายงานกำไรของ node เดียว */
+  getNodeProfits: (nodeId: number, params?: { date_from?: string; date_to?: string; page?: number; per_page?: number }) =>
+    api.get(`/downline/profits/${nodeId}`, { params }),
 }
 
 // =============================================================================
