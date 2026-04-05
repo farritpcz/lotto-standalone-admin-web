@@ -25,9 +25,10 @@ import { depositApi } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import LogHistoryModal from '@/components/LogHistoryModal'
 import {
   ArrowDownToLine, Clock, CheckCircle, XCircle,
-  Search, RefreshCw, Eye, FileText, ImageIcon,
+  Search, RefreshCw, Eye, FileText, ImageIcon, History, Calendar,
 } from 'lucide-react'
 
 // ─── Status config ───────────────────────────────────────────────────
@@ -98,6 +99,10 @@ export default function DepositsPage() {
   const [confirmDlg, setConfirmDlg] = useState<ConfirmDialogProps | null>(null)
   const [cancelModal, setCancelModal] = useState<DepositRow | null>(null) // ⭐ modal ยกเลิก (เลือก หัก/ไม่หักเครดิต)
   const [cancelReason, setCancelReason] = useState('')
+  const [logModal, setLogModal] = useState<number | null>(null) // ⭐ ID ของรายการที่ดู timeline
+  const [dateFilter, setDateFilter] = useState('') // 'today' | 'yesterday' | 'custom' | ''
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const { toast } = useToast()
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -108,19 +113,44 @@ export default function DepositsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [searchInput])
 
+  // ── Date filter helpers ─────────────────────────────────────────────
+  const fmtISODate = (d: Date) => d.toISOString().split('T')[0]
+  const getDateRange = () => {
+    if (dateFilter === 'today') {
+      const d = fmtISODate(new Date())
+      return { date_from: d, date_to: d }
+    }
+    if (dateFilter === 'yesterday') {
+      const y = new Date(); y.setDate(y.getDate() - 1)
+      const d = fmtISODate(y)
+      return { date_from: d, date_to: d }
+    }
+    if (dateFilter === 'custom') {
+      return { date_from: dateFrom || undefined, date_to: dateTo || undefined }
+    }
+    return {}
+  }
+
+  const handleDateFilter = (key: string) => {
+    if (key === dateFilter) { setDateFilter(''); return }
+    setDateFilter(key)
+  }
+
   // ── โหลดข้อมูล ────────────────────────────────────────────────────
   const fetchData = useCallback(() => {
     setLoading(true)
-    depositApi.list({ status: filter || undefined, q: search || undefined, page, per_page: PER_PAGE })
+    const dr = getDateRange()
+    depositApi.list({ status: filter || undefined, q: search || undefined, page, per_page: PER_PAGE, ...dr })
       .then(res => {
         setRows(res.data.data?.items || [])
         setTotal(res.data.data?.total || 0)
       })
       .catch(() => toast.error('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
-  }, [filter, search, page, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, search, page, dateFilter, dateFrom, dateTo, toast])
 
-  useEffect(() => { setPage(1) }, [filter, search])
+  useEffect(() => { setPage(1) }, [filter, search, dateFilter, dateFrom, dateTo])
   useEffect(() => { fetchData() }, [fetchData])
 
   // ── Stat cards (คำนวณจาก rows ปัจจุบัน) ───────────────────────────
@@ -218,8 +248,8 @@ export default function DepositsPage() {
         <StatCard icon={FileText} label="ทั้งหมด (หน้านี้)" value={String(total)} color="var(--status-info)" />
       </div>
 
-      {/* ── Filter Tabs + Search ────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* ── Filter Tabs + Date Filter + Search ─────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         {filterTabs.map(tab => {
           const Icon = tab.icon
           return (
@@ -238,6 +268,30 @@ export default function DepositsPage() {
             placeholder="ค้นหา username..." className="input"
             style={{ width: 220, height: 32, paddingLeft: 32 }} />
         </div>
+      </div>
+
+      {/* ── Date Filter (วันนี้ / เมื่อวาน / กำหนดเอง) ─────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[
+          { key: 'today', label: 'วันนี้' },
+          { key: 'yesterday', label: 'เมื่อวาน' },
+          { key: 'custom', label: 'กำหนดเอง' },
+        ].map(d => (
+          <button key={d.key} onClick={() => handleDateFilter(d.key)}
+            className={dateFilter === d.key ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ fontSize: 12, gap: 4 }}>
+            <Calendar size={13} /> {d.label}
+          </button>
+        ))}
+        {dateFilter === 'custom' && (
+          <>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="input" style={{ height: 32, fontSize: 12, width: 150 }} />
+            <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>ถึง</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="input" style={{ height: 32, fontSize: 12, width: 150 }} />
+          </>
+        )}
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────── */}
@@ -299,24 +353,30 @@ export default function DepositsPage() {
                       <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{relTime(row.created_at)}</div>
                     </td>
                     <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                      {row.status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                          <button onClick={() => handleApprove(row)} disabled={actionLoading === row.id}
-                            className="btn btn-success" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
-                            <CheckCircle size={13} /> อนุมัติ
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        {row.status === 'pending' && (
+                          <>
+                            <button onClick={() => handleApprove(row)} disabled={actionLoading === row.id}
+                              className="btn btn-success" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
+                              <CheckCircle size={13} /> อนุมัติ
+                            </button>
+                            <button onClick={() => handleReject(row)} disabled={actionLoading === row.id}
+                              className="btn btn-danger" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
+                              <XCircle size={13} /> ปฏิเสธ
+                            </button>
+                          </>
+                        )}
+                        {row.status === 'approved' && (
+                          <button onClick={() => handleCancel(row)} disabled={actionLoading === row.id}
+                            className="btn btn-ghost" style={{ fontSize: 11, height: 28, color: 'var(--status-error)', gap: 4 }}>
+                            <XCircle size={13} /> ยกเลิก
                           </button>
-                          <button onClick={() => handleReject(row)} disabled={actionLoading === row.id}
-                            className="btn btn-danger" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
-                            <XCircle size={13} /> ปฏิเสธ
-                          </button>
-                        </div>
-                      )}
-                      {row.status === 'approved' && (
-                        <button onClick={() => handleCancel(row)} disabled={actionLoading === row.id}
-                          className="btn btn-ghost" style={{ fontSize: 11, height: 28, color: 'var(--status-error)', gap: 4 }}>
-                          <XCircle size={13} /> ยกเลิก
+                        )}
+                        <button onClick={() => setLogModal(row.id)} title="ประวัติรายการ"
+                          className="btn btn-ghost" style={{ width: 28, height: 28, padding: 0, minWidth: 0 }}>
+                          <History size={14} color="var(--text-tertiary)" />
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -461,6 +521,16 @@ export default function DepositsPage() {
 
       {/* ConfirmDialog */}
       {confirmDlg && <ConfirmDialog {...confirmDlg} />}
+
+      {/* Log History Modal */}
+      {logModal && (
+        <LogHistoryModal
+          title="ประวัติรายการฝากเงิน"
+          requestId={logModal}
+          fetchLogs={depositApi.getLogs}
+          onClose={() => setLogModal(null)}
+        />
+      )}
     </div>
   )
 }

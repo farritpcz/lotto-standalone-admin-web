@@ -131,7 +131,16 @@ export const rateMgmtApi = {
 
 // Bets & Transactions
 export const betMgmtApi = {
+  /** ดึงรายการเดิมพัน (params: page, per_page, status, q, date_from, date_to, lottery_type_id) */
   list: (params?: Record<string, unknown>) => api.get('/bets', { params }),
+  /** ดึงทุก bets ในบิลเดียวกัน (batch_id) */
+  getBill: (batchId: string) => api.get(`/bets/bill/${batchId}`),
+  /** ดึง timeline log ของรายการเดิมพัน */
+  getLogs: (id: number) => api.get(`/bets/${id}/logs`),
+  /** ยกเลิก/void bet เดี่ยว */
+  cancel: (id: number, refund: boolean, reason?: string) => api.put(`/bets/${id}/cancel`, { refund, reason }),
+  /** ยกเลิกทั้งบิล — refund=true คืนเครดิต, false=ไม่คืน */
+  cancelBill: (batchId: string, refund: boolean, reason?: string) => api.put(`/bets/bill/${batchId}/cancel`, { refund, reason }),
 }
 export const txMgmtApi = {
   list: (params?: Record<string, unknown>) => api.get('/transactions', { params }),
@@ -161,6 +170,8 @@ export const agentThemeApi = {
 export const depositApi = {
   /** ดึงรายการฝาก (params: page, per_page, status, q) */
   list: (params?: Record<string, unknown>) => api.get('/deposits', { params }),
+  /** ดึง timeline log ของรายการฝาก */
+  getLogs: (id: number) => api.get(`/deposits/${id}/logs`),
   /** อนุมัติฝาก — เพิ่มเงิน + โบนัสฝากครั้งแรก (ถ้ามี) */
   approve: (id: number) => api.put(`/deposits/${id}/approve`),
   /** ปฏิเสธฝาก — ไม่เพิ่มเงิน */
@@ -175,6 +186,8 @@ export const depositApi = {
 export const withdrawApi = {
   /** ดึงรายการถอน (params: page, per_page, status, q) */
   list: (params?: Record<string, unknown>) => api.get('/withdrawals', { params }),
+  /** ดึง timeline log ของรายการถอน */
+  getLogs: (id: number) => api.get(`/withdrawals/${id}/logs`),
   /** อนุมัติถอน — mode: "auto" (RKAUTO) หรือ "manual" (โอนเอง) */
   approve: (id: number, mode: 'auto' | 'manual') => api.put(`/withdrawals/${id}/approve`, { mode }),
   /** ปฏิเสธถอน — refund=true คืนเงิน, false=ไม่คืน (กรณีทุจริต) */
@@ -294,6 +307,9 @@ export const yeekeeMgmtApi = {
   getShoots: (id: number, params?: { page?: number; per_page?: number }) =>
     api.get(`/yeekee/rounds/${id}/shoots`, { params }),
 
+  /** ⭐ แอดมินกดออกผลยี่กี manual (เฉพาะรอบ missed) */
+  settleRound: (id: number) => api.post(`/yeekee/rounds/${id}/settle`),
+
   /** สถิติยี่กีวันนี้ */
   getStats: () => api.get('/yeekee/stats'),
 
@@ -312,7 +328,7 @@ export interface YeekeeRound {
   round_no: number
   start_time: string
   end_time: string
-  status: 'waiting' | 'shooting' | 'calculating' | 'resulted'
+  status: 'waiting' | 'shooting' | 'calculating' | 'resulted' | 'missed'
   result_number: string
   total_shoots: number
   total_sum: number
@@ -332,6 +348,7 @@ export interface YeekeeShoot {
   member_id: number
   number: string
   shot_at: string
+  is_bot: boolean
   member?: { id: number; username: string }
 }
 
@@ -340,6 +357,7 @@ export interface YeekeeStats {
   waiting_count: number
   shooting_count: number
   resulted_count: number
+  missed_count: number
   total_shoots: number
   total_bets: number
   total_bet_amount: number

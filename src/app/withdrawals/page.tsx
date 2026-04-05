@@ -29,9 +29,10 @@ import { withdrawApi } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 import Loading from '@/components/Loading'
 import BankIcon from '@/components/BankIcon'
+import LogHistoryModal from '@/components/LogHistoryModal'
 import {
   ArrowUpFromLine, Clock, CheckCircle, XCircle,
-  Search, RefreshCw, Eye, FileText, Copy, Zap, Hand,
+  Search, RefreshCw, Eye, FileText, Copy, Zap, Hand, History, Calendar,
 } from 'lucide-react'
 
 // ─── Status config ───────────────────────────────────────────────────
@@ -100,6 +101,10 @@ export default function WithdrawalsPage() {
   const [approveModal, setApproveModal] = useState<WithdrawRow | null>(null)
   const [rejectModal, setRejectModal] = useState<WithdrawRow | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [logModal, setLogModal] = useState<number | null>(null)
+  const [dateFilter, setDateFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   // ⭐ Debounce search
   useEffect(() => {
@@ -108,16 +113,41 @@ export default function WithdrawalsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [searchInput])
 
+  // ── Date filter helpers ─────────────────────────────────────────────
+  const fmtISODate = (d: Date) => d.toISOString().split('T')[0]
+  const getDateRange = () => {
+    if (dateFilter === 'today') {
+      const d = fmtISODate(new Date())
+      return { date_from: d, date_to: d }
+    }
+    if (dateFilter === 'yesterday') {
+      const y = new Date(); y.setDate(y.getDate() - 1)
+      const d = fmtISODate(y)
+      return { date_from: d, date_to: d }
+    }
+    if (dateFilter === 'custom') {
+      return { date_from: dateFrom || undefined, date_to: dateTo || undefined }
+    }
+    return {}
+  }
+
+  const handleDateFilter = (key: string) => {
+    if (key === dateFilter) { setDateFilter(''); return }
+    setDateFilter(key)
+  }
+
   // ── โหลดข้อมูล ────────────────────────────────────────────────────
   const fetchData = useCallback(() => {
     setLoading(true)
-    withdrawApi.list({ status: filter || undefined, q: search || undefined, page, per_page: PER_PAGE })
+    const dr = getDateRange()
+    withdrawApi.list({ status: filter || undefined, q: search || undefined, page, per_page: PER_PAGE, ...dr })
       .then(res => { setRows(res.data.data?.items || []); setTotal(res.data.data?.total || 0) })
       .catch(() => toast.error('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
-  }, [filter, search, page, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, search, page, dateFilter, dateFrom, dateTo, toast])
 
-  useEffect(() => { setPage(1) }, [filter, search])
+  useEffect(() => { setPage(1) }, [filter, search, dateFilter, dateFrom, dateTo])
   useEffect(() => { fetchData() }, [fetchData])
 
   // ── Stats ──────────────────────────────────────────────────────────
@@ -180,8 +210,8 @@ export default function WithdrawalsPage() {
         <StatCard icon={FileText} label="ทั้งหมด (หน้านี้)" value={String(total)} color="var(--status-info)" />
       </div>
 
-      {/* ── Filter Tabs + Search ────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* ── Filter Tabs + Date Filter + Search ─────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         {filterTabs.map(tab => {
           const Icon = tab.icon
           return (
@@ -199,6 +229,30 @@ export default function WithdrawalsPage() {
             placeholder="ค้นหา username..." className="input"
             style={{ width: 220, height: 32, paddingLeft: 32 }} />
         </div>
+      </div>
+
+      {/* ── Date Filter (วันนี้ / เมื่อวาน / กำหนดเอง) ─────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[
+          { key: 'today', label: 'วันนี้' },
+          { key: 'yesterday', label: 'เมื่อวาน' },
+          { key: 'custom', label: 'กำหนดเอง' },
+        ].map(d => (
+          <button key={d.key} onClick={() => handleDateFilter(d.key)}
+            className={dateFilter === d.key ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ fontSize: 12, gap: 4 }}>
+            <Calendar size={13} /> {d.label}
+          </button>
+        ))}
+        {dateFilter === 'custom' && (
+          <>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="input" style={{ height: 32, fontSize: 12, width: 150 }} />
+            <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>ถึง</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="input" style={{ height: 32, fontSize: 12, width: 150 }} />
+          </>
+        )}
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────── */}
@@ -258,18 +312,24 @@ export default function WithdrawalsPage() {
                       <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{relTime(row.created_at)}</div>
                     </td>
                     <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                      {row.status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                          <button onClick={() => setApproveModal(row)} disabled={actionLoading === row.id}
-                            className="btn btn-success" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
-                            <CheckCircle size={13} /> อนุมัติ
-                          </button>
-                          <button onClick={() => { setRejectReason(''); setRejectModal(row) }} disabled={actionLoading === row.id}
-                            className="btn btn-danger" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
-                            <XCircle size={13} /> ปฏิเสธ
-                          </button>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        {row.status === 'pending' && (
+                          <>
+                            <button onClick={() => setApproveModal(row)} disabled={actionLoading === row.id}
+                              className="btn btn-success" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
+                              <CheckCircle size={13} /> อนุมัติ
+                            </button>
+                            <button onClick={() => { setRejectReason(''); setRejectModal(row) }} disabled={actionLoading === row.id}
+                              className="btn btn-danger" style={{ fontSize: 11, height: 28, padding: '0 10px', gap: 4 }}>
+                              <XCircle size={13} /> ปฏิเสธ
+                            </button>
+                          </>
+                        )}
+                        <button onClick={() => setLogModal(row.id)} title="ประวัติรายการ"
+                          className="btn btn-ghost" style={{ width: 28, height: 28, padding: 0, minWidth: 0 }}>
+                          <History size={14} color="var(--text-tertiary)" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -458,6 +518,16 @@ export default function WithdrawalsPage() {
             <button onClick={() => setRejectModal(null)} className="btn btn-ghost" style={{ width: '100%' }}>ยกเลิก</button>
           </div>
         </div>
+      )}
+
+      {/* Log History Modal */}
+      {logModal && (
+        <LogHistoryModal
+          title="ประวัติรายการถอนเงิน"
+          requestId={logModal}
+          fetchLogs={withdrawApi.getLogs}
+          onClose={() => setLogModal(null)}
+        />
       )}
     </div>
   )

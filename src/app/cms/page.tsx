@@ -466,8 +466,25 @@ export default function CMSPage() {
               <div className="label" style={{ marginBottom: 8 }}>
                 รูปประเภทหวย ({ltTypes.length} ประเภท)
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                รูปภาพแสดงในหน้าเลือกหวยของสมาชิก · <span style={{ color: 'var(--accent)', fontWeight: 500 }}>แนะนำ: 200×200px, PNG/SVG, ไม่เกิน 500KB</span>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                รูปภาพแสดงเป็นพื้นหลังของการ์ดหวยในหน้าแทงหวยของสมาชิก ถ้าไม่อัพรูป ระบบจะใช้ SVG default แทนอัตโนมัติ
+              </div>
+              {/* ⭐ คำแนะนำขนาดรูป */}
+              <div style={{
+                background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.15)',
+                borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 12, lineHeight: 1.6,
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 4, fontSize: 13 }}>
+                  คำแนะนำการอัพโหลดรูป
+                </div>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  <div>• <strong>ขนาดแนะนำ:</strong> 400 x 240 px (อัตราส่วน 5:3)</div>
+                  <div>• <strong>ขนาดขั้นต่ำ:</strong> 200 x 120 px</div>
+                  <div>• <strong>รูปแบบ:</strong> PNG, JPG, SVG, WebP</div>
+                  <div>• <strong>ขนาดไฟล์:</strong> ไม่เกิน 500 KB</div>
+                  <div>• <strong>พื้นหลัง:</strong> ใช้สีทึบหรือลายที่ชัดเจน (รูปจะแสดงเป็นพื้นหลังการ์ด ความสูง 90px)</div>
+                  <div>• <strong>หมายเหตุ:</strong> รูปจะถูก crop ให้พอดีกับการ์ด (object-fit: cover) ควรวางเนื้อหาสำคัญไว้ตรงกลาง</div>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>

@@ -17,12 +17,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { yeekeeMgmtApi, YeekeeRound, YeekeeShoot } from '@/lib/api'
 import Loading from '@/components/Loading'
+import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
 const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
   waiting:     { badge: 'badge-neutral',  label: 'รอเริ่ม' },
   shooting:    { badge: 'badge-success',  label: 'กำลังยิง' },
   calculating: { badge: 'badge-warning',  label: 'คำนวณ' },
   resulted:    { badge: 'badge-primary',  label: 'ออกผลแล้ว' },
+  missed:      { badge: 'badge-error',    label: 'ข้ามรอบ' },
 }
 
 interface BetSummary {
@@ -62,6 +64,8 @@ export default function YeekeeDetailPage() {
   const [bets, setBets] = useState<BetItem[]>([])
   const [betSummary, setBetSummary] = useState<BetSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [settling, setSettling] = useState(false)
+  const [dialog, setDialog] = useState<ConfirmDialogProps | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -108,6 +112,29 @@ export default function YeekeeDetailPage() {
 
   const cfg = STATUS_CONFIG[round.status] || { badge: 'badge-neutral', label: round.status }
 
+  // ⭐ แอดมินกดออกผล manual
+  const handleSettle = () => {
+    setDialog({
+      title: 'ออกผลยี่กี Manual',
+      message: `ยืนยันออกผลรอบที่ ${round.round_no}?\nระบบจะคำนวณผลจากเลขยิงที่มีอยู่ + settle bets อัตโนมัติ`,
+      type: 'warning',
+      confirmLabel: 'ออกผล',
+      onConfirm: async () => {
+        setDialog(null)
+        setSettling(true)
+        try {
+          await yeekeeMgmtApi.settleRound(id)
+          fetchData()
+        } catch (err) {
+          console.error('Failed to settle:', err)
+        } finally {
+          setSettling(false)
+        }
+      },
+      onCancel: () => setDialog(null),
+    })
+  }
+
   return (
     <div className="page-container">
       {/* Header */}
@@ -122,6 +149,13 @@ export default function YeekeeDetailPage() {
             <span className={`badge ${cfg.badge} ml-3`}>{cfg.label}</span>
           </p>
         </div>
+        {/* ⭐ ปุ่มออกผล manual สำหรับรอบ missed */}
+        {round.status === 'missed' && (
+          <button onClick={handleSettle} disabled={settling} className="btn btn-sm"
+            style={{ backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
+            {settling ? 'กำลังออกผล...' : 'กดออกผล'}
+          </button>
+        )}
       </div>
 
       {/* Result + Summary Cards */}
@@ -212,8 +246,16 @@ export default function YeekeeDetailPage() {
 
       {/* Shoots Table */}
       <div className="card-surface">
-        <div className="p-4 border-b border-[var(--border-color)]">
-          <h2 className="text-lg font-semibold">เลขที่ยิง ({shoots.length} เลข)</h2>
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            เลขที่ยิง ({shoots.length} เลข
+            {shoots.filter(s => s.is_bot).length > 0 && (
+              <span className="text-sm font-normal text-[var(--text-tertiary)]">
+                {' '}/ BOT {shoots.filter(s => s.is_bot).length}
+              </span>
+            )}
+            )
+          </h2>
         </div>
         <table className="admin-table">
           <thead>
@@ -229,9 +271,17 @@ export default function YeekeeDetailPage() {
               <tr><td colSpan={4} className="text-center py-8 text-[var(--text-tertiary)]">ยังไม่มีเลขยิง</td></tr>
             ) : (
               shoots.map((s, i) => (
-                <tr key={s.id}>
+                <tr key={s.id} style={s.is_bot ? { opacity: 0.6 } : {}}>
                   <td className="text-[var(--text-tertiary)]">{i + 1}</td>
-                  <td>{s.member?.username || `#${s.member_id}`}</td>
+                  <td>
+                    {s.is_bot ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-600 text-gray-300">BOT</span>
+                      </span>
+                    ) : (
+                      s.member?.username || `#${s.member_id}`
+                    )}
+                  </td>
                   <td className="font-mono font-bold text-yellow-400">{s.number}</td>
                   <td className="text-sm">{formatTime(s.shot_at)}</td>
                 </tr>
@@ -240,6 +290,9 @@ export default function YeekeeDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {/* ConfirmDialog */}
+      {dialog && <ConfirmDialog {...dialog} />}
     </div>
   )
 }

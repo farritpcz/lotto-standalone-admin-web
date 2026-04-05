@@ -17,6 +17,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { yeekeeMgmtApi, YeekeeRound, YeekeeStats } from '@/lib/api'
+import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 
 // สถานะ → badge + label
 const STATUS_CONFIG: Record<string, { badge: string; label: string; color: string }> = {
@@ -24,6 +25,7 @@ const STATUS_CONFIG: Record<string, { badge: string; label: string; color: strin
   shooting:    { badge: 'badge-success',  label: 'กำลังยิง',    color: '#34d399' },
   calculating: { badge: 'badge-warning',  label: 'คำนวณ',       color: '#fbbf24' },
   resulted:    { badge: 'badge-primary',  label: 'ออกผลแล้ว',   color: '#60a5fa' },
+  missed:      { badge: 'badge-error',    label: 'ข้ามรอบ',     color: '#f87171' },
 }
 
 const FILTERS = [
@@ -31,6 +33,7 @@ const FILTERS = [
   { value: 'shooting',   label: 'กำลังยิง' },
   { value: 'waiting',    label: 'รอเริ่ม' },
   { value: 'resulted',   label: 'ออกผลแล้ว' },
+  { value: 'missed',     label: 'ข้ามรอบ' },
 ]
 
 // =============================================================================
@@ -64,10 +67,11 @@ function useCountdown(targetTime: string) {
 // =============================================================================
 // Round Card — แบบ gradient คล้ายหน้าสมาชิก (dark theme)
 // =============================================================================
-function YeekeeRoundCard({ round, onClick }: { round: YeekeeRound; onClick: () => void }) {
+function YeekeeRoundCard({ round, onClick, onSettle }: { round: YeekeeRound; onClick: () => void; onSettle?: (id: number) => void }) {
   const countdown = useCountdown(round.end_time)
   const isShooting = round.status === 'shooting'
   const isResulted = round.status === 'resulted'
+  const isMissed = round.status === 'missed'
   const isExpired = countdown.total <= 0
 
   const closeDate = new Date(round.end_time)
@@ -78,15 +82,17 @@ function YeekeeRoundCard({ round, onClick }: { round: YeekeeRound; onClick: () =
     <button
       onClick={onClick}
       className="w-full text-left rounded-xl overflow-hidden transition-transform hover:scale-[1.02] active:scale-[0.98]"
-      style={{ opacity: isExpired && !isResulted ? 0.5 : 1 }}
+      style={{ opacity: isExpired && !isResulted && !isMissed ? 0.5 : 1 }}
     >
       {/* Card body — gradient */}
       <div
         className="relative p-3"
         style={{
-          background: isResulted
-            ? 'linear-gradient(135deg, #1a3a5f 0%, #1e3a2a 100%)'
-            : 'linear-gradient(135deg, #0d6e6e 0%, #14956e 50%, #1a472a 100%)',
+          background: isMissed
+            ? 'linear-gradient(135deg, #5f1a1a 0%, #3a1e1e 100%)'
+            : isResulted
+              ? 'linear-gradient(135deg, #1a3a5f 0%, #1e3a2a 100%)'
+              : 'linear-gradient(135deg, #0d6e6e 0%, #14956e 50%, #1a472a 100%)',
           minHeight: '100px',
         }}
       >
@@ -105,6 +111,16 @@ function YeekeeRoundCard({ round, onClick }: { round: YeekeeRound; onClick: () =
               style={{ backgroundColor: 'rgba(52, 199, 89, 0.9)' }}>
               <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
               LIVE
+            </span>
+          </div>
+        )}
+
+        {/* MISSED badge */}
+        {isMissed && (
+          <div className="absolute top-2 right-2">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white"
+              style={{ backgroundColor: 'rgba(239, 68, 68, 0.9)' }}>
+              ข้ามรอบ
             </span>
           </div>
         )}
@@ -145,19 +161,34 @@ function YeekeeRoundCard({ round, onClick }: { round: YeekeeRound; onClick: () =
             </div>
           </div>
         )}
+
+        {/* ⭐ ปุ่มออกผล manual สำหรับรอบ missed */}
+        {isMissed && onSettle && (
+          <div className="relative z-10 mt-2">
+            <div
+              onClick={(e) => { e.stopPropagation(); onSettle(round.id) }}
+              className="w-full text-center py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer transition-colors"
+              style={{ backgroundColor: 'rgba(239, 68, 68, 0.8)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.8)')}
+            >
+              กดออกผล
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Countdown bar */}
       <div className="px-2 py-1.5 flex items-center justify-center gap-1.5"
         style={{ background: '#1e1e2e', borderTop: '1px solid #2e2e42' }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke={isExpired ? '#fbbf24' : '#34d399'}
+        <svg viewBox="0 0 24 24" fill="none" stroke={isMissed ? '#f87171' : isExpired ? '#fbbf24' : '#34d399'}
           strokeWidth={2} className="w-3 h-3">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
         <span className="text-[11px] font-semibold"
-          style={{ color: isExpired ? '#fbbf24' : '#34d399' }}>
-          {isResulted ? 'ออกผลแล้ว' : isExpired ? 'หมดเวลา' : countdown.text}
+          style={{ color: isMissed ? '#f87171' : isExpired ? '#fbbf24' : '#34d399' }}>
+          {isMissed ? 'ข้ามรอบ — กดออกผล' : isResulted ? 'ออกผลแล้ว' : isExpired ? 'หมดเวลา' : countdown.text}
         </span>
       </div>
     </button>
@@ -176,6 +207,8 @@ export default function YeekeeMonitorPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [settling, setSettling] = useState(false)
+  const [dialog, setDialog] = useState<ConfirmDialogProps | null>(null)
   const perPage = 40
 
   const fetchData = useCallback(async () => {
@@ -197,6 +230,30 @@ export default function YeekeeMonitorPage() {
       setLoading(false)
     }
   }, [page, statusFilter, selectedDate])
+
+  // ⭐ แอดมินกดออกผลยี่กี manual
+  const handleSettle = useCallback((roundId: number) => {
+    const round = rounds.find(r => r.id === roundId)
+    setDialog({
+      title: 'ออกผลยี่กี Manual',
+      message: `ยืนยันออกผลรอบที่ ${round?.round_no || roundId}?\nระบบจะคำนวณผลจากเลขยิงที่มีอยู่ + settle bets อัตโนมัติ`,
+      type: 'warning',
+      confirmLabel: 'ออกผล',
+      onConfirm: async () => {
+        setDialog(null)
+        setSettling(true)
+        try {
+          await yeekeeMgmtApi.settleRound(roundId)
+          fetchData()
+        } catch (err) {
+          console.error('Failed to settle:', err)
+        } finally {
+          setSettling(false)
+        }
+      },
+      onCancel: () => setDialog(null),
+    })
+  }, [rounds, fetchData])
 
   useEffect(() => {
     fetchData()
@@ -231,6 +288,12 @@ export default function YeekeeMonitorPage() {
             <div className="text-xs text-[var(--text-tertiary)] mb-1">ออกผลแล้ว</div>
             <div className="text-2xl font-bold text-blue-400">{stats.resulted_count}</div>
           </div>
+          {stats.missed_count > 0 && (
+            <div className="card-surface p-4">
+              <div className="text-xs text-[var(--text-tertiary)] mb-1">ข้ามรอบ</div>
+              <div className="text-2xl font-bold text-red-400">{stats.missed_count}</div>
+            </div>
+          )}
           <div className="card-surface p-4">
             <div className="text-xs text-[var(--text-tertiary)] mb-1">กำไรวันนี้</div>
             <div className={`text-2xl font-bold ${stats.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -286,6 +349,7 @@ export default function YeekeeMonitorPage() {
               key={r.id}
               round={r}
               onClick={() => router.push(`/yeekee/${r.id}`)}
+              onSettle={handleSettle}
             />
           ))}
         </div>
@@ -312,6 +376,19 @@ export default function YeekeeMonitorPage() {
             >
               ถัดไป
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ConfirmDialog */}
+      {dialog && <ConfirmDialog {...dialog} />}
+
+      {/* Settling overlay */}
+      {settling && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[var(--bg-primary)] rounded-xl p-6 text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full mx-auto mb-3" />
+            <div className="text-sm">กำลังออกผล...</div>
           </div>
         </div>
       )}
