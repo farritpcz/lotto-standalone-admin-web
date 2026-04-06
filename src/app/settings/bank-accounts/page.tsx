@@ -22,6 +22,10 @@ import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import Loading from '@/components/Loading'
 import BankIcon from '@/components/BankIcon'
+import {
+  ScanLine, Shield, CheckCircle, XCircle,
+  Wifi, WifiOff, Banknote, Wallet, Eye, EyeOff, TestTube, History, AlertTriangle,
+} from 'lucide-react'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูลบัญชีธนาคาร + ตั้งค่าฝาก/ถอน
@@ -59,9 +63,9 @@ interface BankAccountForm {
   account_number: string
   account_name: string
   is_default: boolean
-  account_type: 'deposit' | 'withdraw'   // บัญชีฝาก หรือ บัญชีถอน
-  transfer_mode: 'manual' | 'auto'       // มือ หรือ ออโต้ (RKAUTO)
-  bank_system: string                     // SMS / BANK / KBIZ (ใช้กับ auto)
+  account_type: 'deposit' | 'withdraw'                // บัญชีฝาก หรือ บัญชีถอน
+  transfer_mode: 'manual' | 'auto' | 'easyslip'       // มือ / ออโต้ RKAUTO / EasySlip ตรวจสลิป
+  bank_system: string                                   // SMS / BANK / KBIZ (ใช้กับ auto)
   rkauto_token1: string
   rkauto_token2: string
 }
@@ -116,6 +120,24 @@ export default function BankAccountsPage() {
   // ----- State: Feedback message -----
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // ----- State: EasySlip config -----
+  const [esHasConfig, setEsHasConfig] = useState(false)
+  const [esApiKey, setEsApiKey] = useState('')
+  const [esApiKeyMasked, setEsApiKeyMasked] = useState('')
+  const [esShowKey, setEsShowKey] = useState(false)
+  const [esEnabled, setEsEnabled] = useState(true)
+  const [esBankVerify, setEsBankVerify] = useState(true)
+  const [esTruewallet, setEsTruewallet] = useState(false)
+  const [esMatchAccount, setEsMatchAccount] = useState(true)
+  const [esCheckDuplicate, setEsCheckDuplicate] = useState(true)
+  const [esAutoApprove, setEsAutoApprove] = useState(true)
+  const [esAmountTolerance, setEsAmountTolerance] = useState('0')
+  const [esSaving, setEsSaving] = useState(false)
+  const [esTesting, setEsTesting] = useState(false)
+  const [esTestResult, setEsTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [esVerifications, setEsVerifications] = useState<{ id: number; member_username: string; verify_type: string; slip_amount: number | null; sender_bank: string | null; status: string; is_duplicate: boolean; created_at: string }[]>([])
+  const [esShowHistory, setEsShowHistory] = useState(false)
+
   // ===== โหลดข้อมูลเริ่มต้น =====
   useEffect(() => {
     loadAccounts()
@@ -143,6 +165,22 @@ export default function BankAccountsPage() {
         const settingsRes = await api.get('/agent/deposit-withdraw-settings')
         if (settingsRes.data.data) setSettings(settingsRes.data.data)
       } catch { /* ใช้ mock settings */ }
+      // โหลด EasySlip config
+      try {
+        const esRes = await api.get('/easyslip/config')
+        const cfg = esRes.data.data
+        if (cfg) {
+          setEsHasConfig(true)
+          setEsApiKeyMasked(cfg.api_key_masked || '')
+          setEsEnabled(cfg.enabled)
+          setEsBankVerify(cfg.bank_verify_enabled)
+          setEsTruewallet(cfg.truewallet_enabled)
+          setEsMatchAccount(cfg.match_account)
+          setEsCheckDuplicate(cfg.check_duplicate)
+          setEsAutoApprove(cfg.auto_approve_on_match)
+          setEsAmountTolerance(String(cfg.amount_tolerance || 0))
+        }
+      } catch { /* ยังไม่มี config */ }
     } catch {
       // API ยังไม่มี → ใช้ mock data
       setAccounts(MOCK_ACCOUNTS)
@@ -416,9 +454,11 @@ export default function BankAccountsPage() {
                     </span>
                     {acc.is_default && <span className="badge badge-info" style={{ fontSize: 10, marginLeft: 4 }}>หลัก</span>}
                   </td>
-                  {/* โหมด: มือ/ออโต้ */}
+                  {/* โหมด: มือ/ออโต้/EasySlip */}
                   <td>
-                    {acc.transfer_mode === 'auto' ? (
+                    {acc.transfer_mode === 'easyslip' ? (
+                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(0,122,255,0.12)', color: '#007AFF', fontWeight: 600 }}>EasySlip</span>
+                    ) : acc.transfer_mode === 'auto' ? (
                       <div>
                         <span className="badge badge-warning" style={{ fontSize: 10 }}>ออโต้</span>
                         {acc.rkauto_status && (
@@ -471,7 +511,180 @@ export default function BankAccountsPage() {
         )}
       </div>
 
-      {/* ตั้งค่าฝาก/ถอน → ย้ายไปอยู่ในเมนู "ตั้งค่าฝาก/ถอน" แล้ว */}
+      {/* ══════════════════════════════════════════════════════════════════
+         SECTION 2: ตั้งค่า EasySlip — ระบบตรวจสลิปอัตโนมัติ
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="card-surface" style={{ padding: 20, marginBottom: 20 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ScanLine size={16} color="#007AFF" />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>ตั้งค่า EasySlip</div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>ระบบตรวจสลิปอัตโนมัติ — สมาชิกอัปโหลดสลิป → ระบบ verify → auto-approve</div>
+            </div>
+          </div>
+          {esHasConfig && (
+            <button className="btn btn-ghost" onClick={async () => {
+              setEsShowHistory(true)
+              try {
+                const res = await api.get('/easyslip/verifications', { params: { per_page: 15 } })
+                setEsVerifications(res.data.data?.items || [])
+              } catch { /* ignore */ }
+            }} style={{ fontSize: 11, gap: 4, display: 'flex', alignItems: 'center' }}>
+              <History size={13} /> ประวัติ
+            </button>
+          )}
+        </div>
+
+        {/* Status badge */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', borderRadius: 8,
+          background: esHasConfig && esEnabled ? 'rgba(52,199,89,0.06)' : 'rgba(142,142,147,0.06)',
+        }}>
+          {esHasConfig && esEnabled ? <Wifi size={14} color="#34C759" /> : <WifiOff size={14} color="#8E8E93" />}
+          <span style={{ fontSize: 12, color: esHasConfig && esEnabled ? '#34C759' : '#8E8E93' }}>
+            {esHasConfig && esEnabled ? 'เปิดใช้งาน' : esHasConfig ? 'ปิดชั่วคราว' : 'ยังไม่ได้ตั้งค่า'}
+          </span>
+        </div>
+
+        {/* Form */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* ซ้าย: API Key */}
+          <div>
+            <div className="label" style={{ marginBottom: 6 }}>API Key {esHasConfig && <span style={{ color: '#007AFF', fontSize: 10 }}>({esApiKeyMasked})</span>}</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input type={esShowKey ? 'text' : 'password'} className="input" value={esApiKey}
+                  onChange={e => setEsApiKey(e.target.value)}
+                  placeholder={esHasConfig ? 'เว้นว่าง = ใช้ key เดิม' : 'กรอก API Key จาก EasySlip'} />
+                <button onClick={() => setEsShowKey(!esShowKey)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                  {esShowKey ? <EyeOff size={13} color="var(--text-tertiary)" /> : <Eye size={13} color="var(--text-tertiary)" />}
+                </button>
+              </div>
+              <button className="btn btn-secondary" onClick={async () => {
+                if (!esApiKey && !esHasConfig) { setMessage({ type: 'error', text: 'กรุณากรอก API Key' }); return }
+                setEsTesting(true); setEsTestResult(null)
+                try {
+                  const res = await api.post('/easyslip/test', { api_key: esApiKey || undefined })
+                  setEsTestResult(res.data)
+                } catch { setEsTestResult({ success: false, message: 'เชื่อมต่อไม่ได้' }) }
+                setEsTesting(false)
+              }} disabled={esTesting} style={{ fontSize: 11, whiteSpace: 'nowrap', gap: 4, display: 'flex', alignItems: 'center' }}>
+                <TestTube size={13} /> {esTesting ? 'ทดสอบ...' : 'ทดสอบ'}
+              </button>
+            </div>
+            {esTestResult && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 11, color: esTestResult.success ? '#34C759' : '#FF453A' }}>
+                {esTestResult.success ? <CheckCircle size={12} /> : <XCircle size={12} />} {esTestResult.message}
+              </div>
+            )}
+
+            {/* เปิด/ปิด + ประเภทสลิป */}
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esEnabled} onChange={() => setEsEnabled(!esEnabled)} style={{ accentColor: '#007AFF' }} />
+                เปิดใช้งาน EasySlip
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esBankVerify} onChange={() => setEsBankVerify(!esBankVerify)} style={{ accentColor: '#007AFF' }} />
+                <Banknote size={13} /> ตรวจสลิปธนาคาร
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esTruewallet} onChange={() => setEsTruewallet(!esTruewallet)} style={{ accentColor: '#007AFF' }} />
+                <Wallet size={13} /> ตรวจสลิป TrueMoney Wallet
+              </label>
+            </div>
+          </div>
+
+          {/* ขวา: ตัวเลือก verify + auto-approve */}
+          <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esCheckDuplicate} onChange={() => setEsCheckDuplicate(!esCheckDuplicate)} style={{ accentColor: '#007AFF' }} />
+                ตรวจสลิปซ้ำ (สลิปซ้ำ → ปฏิเสธทันที)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esMatchAccount} onChange={() => setEsMatchAccount(!esMatchAccount)} style={{ accentColor: '#007AFF' }} />
+                เทียบบัญชีผู้รับ (ตรงกับที่ลงทะเบียนใน EasySlip)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={esAutoApprove} onChange={() => setEsAutoApprove(!esAutoApprove)} style={{ accentColor: '#007AFF' }} />
+                <Shield size={13} /> Auto-approve เมื่อผ่านทุกเงื่อนไข
+              </label>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <div className="label" style={{ marginBottom: 4 }}>ยอมรับส่วนต่างยอดเงิน (บาท)</div>
+              <input type="number" className="input" value={esAmountTolerance}
+                onChange={e => setEsAmountTolerance(e.target.value)} min={0} step={1} />
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>0 = ยอดต้องตรงเป๊ะ</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <button className="btn btn-primary" disabled={esSaving} onClick={async () => {
+          if (!esHasConfig && !esApiKey) { setMessage({ type: 'error', text: 'กรุณากรอก API Key' }); return }
+          setEsSaving(true)
+          try {
+            await api.post('/easyslip/config', {
+              api_key: esApiKey || undefined, enabled: esEnabled,
+              bank_verify_enabled: esBankVerify, truewallet_enabled: esTruewallet,
+              match_account: esMatchAccount, check_duplicate: esCheckDuplicate,
+              auto_approve_on_match: esAutoApprove, amount_tolerance: Number(esAmountTolerance) || 0,
+            })
+            setMessage({ type: 'success', text: 'บันทึกการตั้งค่า EasySlip สำเร็จ' })
+            setEsApiKey(''); loadAccounts()
+          } catch { setMessage({ type: 'error', text: 'บันทึกไม่สำเร็จ' }) }
+          setEsSaving(false)
+        }} style={{ width: '100%', height: 38, fontSize: 13, fontWeight: 600, marginTop: 16 }}>
+          {esSaving ? 'กำลังบันทึก...' : esHasConfig ? 'อัพเดทการตั้งค่า EasySlip' : 'เปิดใช้งาน EasySlip'}
+        </button>
+      </div>
+
+      {/* ── EasySlip Verify History Modal ──────────────────────────────── */}
+      {esShowHistory && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setEsShowHistory(false)}>
+          <div style={{ background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border)', width: '90%', maxWidth: 860, maxHeight: '75vh', overflow: 'auto', padding: 24 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700 }}>ประวัติตรวจสลิป EasySlip</h2>
+              <button className="btn btn-ghost" onClick={() => setEsShowHistory(false)} style={{ fontSize: 11 }}>ปิด</button>
+            </div>
+            {esVerifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-tertiary)', fontSize: 12 }}>ยังไม่มีรายการ</div>
+            ) : (
+              <table className="admin-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr><th>เวลา</th><th>สมาชิก</th><th>ประเภท</th><th>ยอด</th><th>ธนาคาร</th><th>สถานะ</th><th>ซ้ำ</th></tr>
+                </thead>
+                <tbody>
+                  {esVerifications.map(v => (
+                    <tr key={v.id}>
+                      <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{v.created_at?.replace('T', ' ').slice(0, 19)}</td>
+                      <td style={{ fontSize: 12 }}>{v.member_username || '-'}</td>
+                      <td><span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: v.verify_type === 'truewallet' ? 'rgba(255,159,10,0.12)' : 'rgba(0,122,255,0.12)', color: v.verify_type === 'truewallet' ? '#FF9F0A' : '#007AFF' }}>{v.verify_type === 'truewallet' ? 'TrueMoney' : 'ธนาคาร'}</span></td>
+                      <td style={{ fontSize: 12 }}>{v.slip_amount != null ? `${v.slip_amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : '-'}</td>
+                      <td style={{ fontSize: 12 }}>{v.sender_bank || '-'}</td>
+                      <td>
+                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
+                          background: v.status === 'verified' ? 'rgba(52,199,89,0.15)' : v.status === 'duplicate' ? 'rgba(255,69,58,0.15)' : v.status === 'mismatch' ? 'rgba(255,159,10,0.15)' : 'rgba(142,142,147,0.15)',
+                          color: v.status === 'verified' ? '#34C759' : v.status === 'duplicate' ? '#FF453A' : v.status === 'mismatch' ? '#FF9F0A' : '#8E8E93',
+                        }}>{v.status === 'verified' ? 'ผ่าน' : v.status === 'duplicate' ? 'ซ้ำ' : v.status === 'mismatch' ? 'ไม่ตรง' : v.status}</span>
+                      </td>
+                      <td>{v.is_duplicate ? <AlertTriangle size={13} color="#FF453A" /> : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════
          MODAL: เพิ่ม/แก้ไขบัญชีธนาคาร
@@ -555,24 +768,25 @@ export default function BankAccountsPage() {
                 </div>
               </div>
 
-              {/* ── โหมด: มือ / ออโต้ ── */}
+              {/* ── โหมด: มือ / ออโต้ / EasySlip ── */}
               <div>
                 <div className="label" style={{ marginBottom: 6 }}>โหมดการทำงาน</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[
-                    { value: 'manual', label: 'มือ (Manual)', desc: 'แอดมินตรวจสอบเอง' },
-                    { value: 'auto', label: 'ออโต้ (RKAUTO)', desc: 'ระบบตรวจจับอัตโนมัติ' },
+                    { value: 'manual', label: 'มือ (Manual)', desc: 'แอดมินตรวจสอบเอง', color: 'var(--accent)' },
+                    { value: 'auto', label: 'ออโต้ (RKAUTO)', desc: 'ตรวจจับจาก SMS/ยอดเข้า', color: '#f5a623' },
+                    { value: 'easyslip', label: 'EasySlip', desc: 'ตรวจสลิปอัตโนมัติ', color: '#007AFF' },
                   ].map(opt => (
                     <label key={opt.value} style={{
                       flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
-                      border: `2px solid ${form.transfer_mode === opt.value ? (opt.value === 'auto' ? '#f5a623' : 'var(--accent)') : 'var(--border)'}`,
-                      background: form.transfer_mode === opt.value ? (opt.value === 'auto' ? 'rgba(245,166,35,0.06)' : 'rgba(0,229,160,0.06)') : 'transparent',
+                      border: `2px solid ${form.transfer_mode === opt.value ? opt.color : 'var(--border)'}`,
+                      background: form.transfer_mode === opt.value ? `${opt.color}0F` : 'transparent',
                       transition: 'all 0.15s',
                     }}>
                       <input type="radio" name="transfer_mode" value={opt.value} checked={form.transfer_mode === opt.value}
-                        onChange={() => setForm(f => ({ ...f, transfer_mode: opt.value as 'manual' | 'auto' }))}
+                        onChange={() => setForm(f => ({ ...f, transfer_mode: opt.value as 'manual' | 'auto' | 'easyslip' }))}
                         style={{ display: 'none' }} />
-                      <div style={{ fontSize: 13, fontWeight: 600, color: form.transfer_mode === opt.value ? (opt.value === 'auto' ? '#f5a623' : 'var(--accent)') : 'var(--text-primary)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: form.transfer_mode === opt.value ? opt.color : 'var(--text-primary)' }}>{opt.label}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{opt.desc}</div>
                     </label>
                   ))}
@@ -634,6 +848,21 @@ export default function BankAccountsPage() {
 
                   <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
                     * Tokens ไม่ถูกเก็บในระบบ — ส่งไป RKAUTO ตอน register เท่านั้น
+                  </div>
+                </div>
+              )}
+
+              {/* ── EasySlip Section — แสดงเฉพาะ mode=easyslip ── */}
+              {form.transfer_mode === 'easyslip' && (
+                <div style={{ padding: 14, background: 'rgba(0,122,255,0.04)', borderRadius: 8, border: '1px solid rgba(0,122,255,0.2)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#007AFF', marginBottom: 8 }}>
+                    EasySlip — ตรวจสลิปอัตโนมัติ
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+                    สมาชิกอัปโหลดรูปสลิป → ระบบส่งไป EasySlip API ตรวจสอบ → ถ้าถูกต้องอนุมัติทันที
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
+                    ตั้งค่า API Key และเงื่อนไขได้ที่ส่วน <strong style={{ color: '#007AFF' }}>ตั้งค่า EasySlip</strong> ด้านล่าง
                   </div>
                 </div>
               )}
