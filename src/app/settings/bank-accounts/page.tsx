@@ -609,7 +609,7 @@ export default function BankAccountsPage() {
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
                 <input type="checkbox" checked={esMatchAccount} onChange={() => setEsMatchAccount(!esMatchAccount)} style={{ accentColor: '#007AFF' }} />
-                เทียบบัญชีผู้รับ (ตรงกับที่ลงทะเบียนใน EasySlip)
+                เทียบบัญชีผู้รับ (ตรงกับบัญชีโหมด EasySlip ในระบบ)
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
                 <input type="checkbox" checked={esAutoApprove} onChange={() => setEsAutoApprove(!esAutoApprove)} style={{ accentColor: '#007AFF' }} />
