@@ -25,7 +25,7 @@ const menuItems: MenuItem[] = [
   { label: 'สมาชิก', href: '/members', icon: Users, keywords: 'members สมาชิก ผู้ใช้' },
   { label: 'ประเภทหวย', href: '/lotteries', icon: Ticket, keywords: 'lotteries หวย ประเภท' },
   { label: 'รอบหวย', href: '/rounds', icon: Clock, keywords: 'rounds รอบ' },
-  { label: 'กรอกผล', href: '/results', icon: CheckCircle, keywords: 'results ผล กรอก' },
+  // { label: 'กรอกผล', href: '/results', icon: CheckCircle, keywords: 'results ผล กรอก' }, // ⭐ ปิดแล้ว
   { label: 'เลขอั้น', href: '/bans', icon: Ban, keywords: 'bans อั้น เลข' },
   { label: 'อั้นอัตโนมัติ', href: '/bans/auto', icon: Zap, keywords: 'auto ban อั้น อัตโนมัติ' },
   { label: 'อัตราจ่าย', href: '/rates', icon: DollarSign, keywords: 'rates อัตรา จ่าย เรท' },
@@ -67,11 +67,19 @@ export default function CommandPalette() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  useEffect(() => {
+  // ⭐ reset state เมื่อ open เปลี่ยนเป็น true (prev-state pattern — ไม่ trigger setState-in-effect)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (open) {
       setQuery('')
       setSelectedIdx(0)
-      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+  }
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50)
+      return () => clearTimeout(t)
     }
   }, [open])
 
@@ -91,7 +99,12 @@ export default function CommandPalette() {
     }
   }, [filtered, selectedIdx, router])
 
-  useEffect(() => { setSelectedIdx(0) }, [query])
+  // ⭐ reset highlight เมื่อ query เปลี่ยน — prev-state pattern
+  const [prevQuery, setPrevQuery] = useState(query)
+  if (prevQuery !== query) {
+    setPrevQuery(query)
+    setSelectedIdx(0)
+  }
 
   if (!open) return null
 

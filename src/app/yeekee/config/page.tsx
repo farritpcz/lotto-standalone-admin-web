@@ -13,7 +13,7 @@ import Loading from '@/components/Loading'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface AgentConfig {
-  agent_id: number
+  agent_node_id: number
   agent_name: string
   agent_code: string
   enabled: boolean
@@ -24,7 +24,7 @@ export default function YeekeeConfigPage() {
   const [agents, setAgents] = useState<AgentConfig[]>([])
   const [lotteryTypeId, setLotteryTypeId] = useState<number>(0)
   const [loading, setLoading] = useState(true)
-  const [toggling, setToggling] = useState<number | null>(null) // agent_id ที่กำลัง toggle
+  const [toggling, setToggling] = useState<number | null>(null) // agent_node_id ที่กำลัง toggle
   const [message, setMessage] = useState('')
 
   // ── Fetch config ───────────────────────────────────────────────────────────
@@ -45,18 +45,18 @@ export default function YeekeeConfigPage() {
 
   // ── Toggle enable/disable ──────────────────────────────────────────────────
   const handleToggle = async (agent: AgentConfig) => {
-    setToggling(agent.agent_id)
+    setToggling(agent.agent_node_id)
     setMessage('')
     try {
       const res = await yeekeeMgmtApi.setConfig({
-        agent_id: agent.agent_id,
+        agent_node_id: agent.agent_node_id,
         enabled: !agent.enabled,
       })
       const msg = res.data.data?.message || (!agent.enabled ? 'เปิดยี่กีสำเร็จ' : 'ปิดยี่กีสำเร็จ')
       setMessage(msg)
       // อัพเดท state ทันที (ไม่ต้อง refetch)
       setAgents(prev => prev.map(a =>
-        a.agent_id === agent.agent_id ? { ...a, enabled: !a.enabled } : a
+        a.agent_node_id === agent.agent_node_id ? { ...a, enabled: !a.enabled } : a
       ))
     } catch {
       setMessage('เกิดข้อผิดพลาด')
@@ -105,7 +105,7 @@ export default function YeekeeConfigPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
             {agents.map(agent => (
               <div
-                key={agent.agent_id}
+                key={agent.agent_node_id}
                 className="card-surface"
                 style={{
                   padding: 20,
@@ -120,7 +120,7 @@ export default function YeekeeConfigPage() {
                       {agent.agent_name}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                      {agent.agent_code} (ID: {agent.agent_id})
+                      {agent.agent_code} (ID: {agent.agent_node_id})
                     </div>
                   </div>
                   <span className={agent.enabled ? 'badge badge-success' : 'badge badge-neutral'}>
@@ -143,11 +143,11 @@ export default function YeekeeConfigPage() {
                 {/* Toggle button */}
                 <button
                   onClick={() => handleToggle(agent)}
-                  disabled={toggling === agent.agent_id}
+                  disabled={toggling === agent.agent_node_id}
                   className={agent.enabled ? 'btn btn-secondary' : 'btn btn-primary'}
                   style={{ width: '100%', height: 40, fontSize: 14 }}
                 >
-                  {toggling === agent.agent_id
+                  {toggling === agent.agent_node_id
                     ? 'กำลังบันทึก...'
                     : agent.enabled
                       ? 'ปิดยี่กี'

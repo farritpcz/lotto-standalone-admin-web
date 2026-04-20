@@ -31,17 +31,36 @@ export default function AdminLoginPage() {
       const userType = res.data.data?.user_type || 'admin'
 
       if (userType === 'node') {
-        // ⭐ Node user → เก็บ flag + redirect ไปหน้าสายงาน
+        // ⭐ Node user → เก็บ flag + role/permissions สำหรับ sidebar filtering
         localStorage.setItem('user_type', 'node')
         localStorage.setItem('node_id', String(res.data.data?.node_id || ''))
         localStorage.setItem('node_role', res.data.data?.node_role || '')
         localStorage.setItem('node_name', res.data.data?.admin?.name || '')
         localStorage.setItem('share_percent', String(res.data.data?.share_percent || ''))
-        window.location.href = '/downline'
+        // ⭐ เก็บ role/permissions จริง (operator/viewer) สำหรับซ่อนเมนู
+        const adminRole = res.data.data?.admin?.role || 'owner'
+        const adminPerms = res.data.data?.admin?.permissions || '[]'
+        localStorage.setItem('admin_role', adminRole)
+        localStorage.setItem('admin_permissions', adminPerms)
+        // ⭐ Redirect ไปหน้าแรกที่มีสิทธิ์ (ไม่ใช่ hardcode /downline)
+        if (adminRole === 'owner' || adminRole === 'admin') {
+          window.location.href = '/dashboard'
+        } else {
+          // operator/viewer → ไปหน้าแรกที่มี permission
+          let perms: string[] = []
+          try { perms = JSON.parse(adminPerms) } catch {}
+          if (perms.some(p => p.startsWith('members'))) window.location.href = '/members'
+          else if (perms.some(p => p.startsWith('finance'))) window.location.href = '/deposits'
+          else if (perms.some(p => p.startsWith('lottery'))) window.location.href = '/lotteries'
+          else if (perms.some(p => p.startsWith('reports'))) window.location.href = '/reports'
+          else window.location.href = '/dashboard'
+        }
       } else {
-        // ⭐ Admin user → ไป dashboard ปกติ
+        // ⭐ Admin user → เก็บ role + permissions สำหรับ sidebar permission filtering
         localStorage.setItem('user_type', 'admin')
         localStorage.removeItem('node_id')
+        localStorage.setItem('admin_role', res.data.data?.admin?.role || 'admin')
+        localStorage.setItem('admin_permissions', res.data.data?.admin?.permissions || '[]')
         window.location.href = '/dashboard'
       }
     } catch {
