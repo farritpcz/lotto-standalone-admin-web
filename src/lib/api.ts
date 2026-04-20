@@ -247,7 +247,7 @@ export const affiliateApi = {
 // TypeScript types สำหรับ affiliate
 export interface AffiliateSetting {
   id: number
-  agent_id: number
+  agent_node_id: number
   lottery_type_id: number | null | undefined  // null/undefined = default ทุกประเภทหวย
   commission_rate: number             // % เช่น 0.5 = 0.5%
   withdrawal_min: number
@@ -267,7 +267,7 @@ export interface AffiliateReportRow {
 // ⭐ Share Template — ข้อความแชร์สำเร็จรูป (line/facebook/telegram)
 export interface ShareTemplate {
   id: number
-  agent_id: number
+  agent_node_id: number
   name: string
   content: string
   platform: string          // 'all' | 'line' | 'facebook' | 'telegram'
@@ -280,7 +280,7 @@ export interface ShareTemplate {
 // ⭐ Commission Adjustment — ปรับค่าคอม (เพิ่ม/หัก/ยกเลิก)
 export interface CommissionAdjustment {
   id: number
-  agent_id: number
+  agent_node_id: number
   member_id: number
   admin_id: number
   type: 'add' | 'deduct' | 'cancel'
@@ -356,7 +356,7 @@ export const nodePortalApi = {
 /** AgentNode — 1 node ในสายงาน */
 export interface AgentNode {
   id: number
-  agent_id: number
+  agent_node_id: number
   parent_id: number | null
   role: 'admin' | 'share_holder' | 'senior' | 'master' | 'agent' | 'agent_downline'
   name: string
@@ -415,7 +415,7 @@ export interface ProfitSummaryRow {
 
 export const downlineApi = {
   /** ดึง tree ทั้งหมด (hierarchical, nested children) */
-  getTree: (params?: { agent_id?: number }) =>
+  getTree: (params?: { agent_node_id?: number }) =>
     api.get('/downline/tree', { params }),
 
   /** ดึง nodes แบบ flat (paginated) */
@@ -425,7 +425,7 @@ export const downlineApi = {
   /** ดึง node detail + children ชั้นเดียว */
   getNode: (id: number) => api.get(`/downline/nodes/${id}`),
 
-  /** สร้าง node ใหม่ */
+  /** สร้าง node ใหม่ (= สร้างเว็บจริง ถ้ามี domain) */
   createNode: (data: {
     parent_id: number | null
     name: string
@@ -436,6 +436,11 @@ export const downlineApi = {
     phone?: string
     line_id?: string
     note?: string
+    // ⭐ ข้อมูลเว็บไซต์ — ผูก domain สำหรับ multi-agent
+    code?: string
+    domain?: string
+    site_name?: string
+    theme?: string // ธีมเว็บ เช่น "default"
   }) => api.post('/downline/nodes', data),
 
   /** แก้ไข node (partial update) */
@@ -466,6 +471,10 @@ export const downlineApi = {
   /** รายงานกำไรของ node เดียว */
   getNodeProfits: (nodeId: number, params?: { date_from?: string; date_to?: string; page?: number; per_page?: number }) =>
     api.get(`/downline/profits/${nodeId}`, { params }),
+
+  /** ⭐ รายงานเคลียสายงาน — เว็บตัวเอง + ใต้สาย + สรุป */
+  getReport: (params?: { date_from?: string; date_to?: string }) =>
+    api.get('/downline/report', { params }),
 }
 
 // =============================================================================
@@ -494,7 +503,7 @@ export const yeekeeMgmtApi = {
   getConfig: () => api.get('/yeekee/config'),
 
   /** เปิด/ปิดยี่กี สำหรับ agent */
-  setConfig: (data: { agent_id: number; enabled: boolean }) =>
+  setConfig: (data: { agent_node_id: number; enabled: boolean }) =>
     api.post('/yeekee/config', data),
 }
 
@@ -573,7 +582,7 @@ export const autoBanApi = {
 
 export interface AutoBanRuleData {
   id: number
-  agent_id: number
+  agent_node_id: number
   lottery_type_id: number
   bet_type: string
   threshold_amount: number
@@ -590,19 +599,16 @@ export interface AutoBanRuleData {
 // ⭐ Member Levels API — ระบบ level สมาชิก (Bronze→Platinum)
 // =============================================================================
 
+// ⭐ v3 (2026-04-20): ตัด commission/cashback/bonus/max_withdraw/min_bets ออก
+//   — badge cosmetic อย่างเดียว + เกณฑ์เดียว `min_deposit_30d` (rolling 30 วัน)
 export interface MemberLevel {
   id: number
-  agent_id: number
+  agent_node_id: number
   name: string
   color: string
   icon: string
   sort_order: number
-  min_deposit: number
-  min_bets: number
-  commission_rate: number
-  cashback_rate: number
-  bonus_pct: number
-  max_withdraw_day: number
+  min_deposit_30d: number     // ⭐ threshold เดียว — ยอดฝากสะสม 30 วันล่าสุด
   description: string
   status: string
   member_count: number
@@ -610,9 +616,28 @@ export interface MemberLevel {
   updated_at: string
 }
 
+// Response จาก list — มี levels + unassigned count
+export interface MemberLevelListResp {
+  levels: MemberLevel[]
+  unassigned: number           // สมาชิกที่ยังไม่ถูกจัดระดับ (level_id=NULL)
+}
+
+// ประวัติการเปลี่ยนระดับ (`member_level_history`)
+export interface MemberLevelHistory {
+  id: number
+  member_id: number
+  from_level_id: number | null
+  to_level_id: number | null
+  reason: 'auto' | 'admin_override' | 'admin_unlock' | 'initial'
+  deposit_30d_snapshot: number
+  changed_by_admin_id: number | null
+  note: string
+  created_at: string
+}
+
 export const memberLevelApi = {
-  /** ดึง level ทั้งหมด + จำนวนสมาชิก */
-  list: () => api.get('/member-levels'),
+  /** ดึง level ทั้งหมด + จำนวนสมาชิก + unassigned count */
+  list: () => api.get<{ data: MemberLevelListResp }>('/member-levels'),
 
   /** สร้าง level ใหม่ */
   create: (data: Partial<MemberLevel>) => api.post('/member-levels', data),
@@ -626,6 +651,18 @@ export const memberLevelApi = {
   /** จัดลำดับ levels */
   reorder: (orders: { id: number; sort_order: number }[]) =>
     api.put('/member-levels/reorder', { orders }),
+
+  /** ⭐ admin override — เปลี่ยน level ของสมาชิกคนหนึ่ง + lock (cron ไม่แก้) */
+  overrideMember: (memberId: number, levelId: number | null, note?: string) =>
+    api.put(`/members/${memberId}/level`, { level_id: levelId, note }),
+
+  /** ⭐ ยกเลิก lock — ครั้งถัดไปที่ cron รัน จะคำนวณ level จาก deposit_30d อัตโนมัติ */
+  unlockMember: (memberId: number) =>
+    api.delete(`/members/${memberId}/level-lock`),
+
+  /** ⭐ ประวัติการเปลี่ยนระดับของสมาชิก (100 รายการล่าสุด) */
+  memberHistory: (memberId: number) =>
+    api.get<{ data: MemberLevelHistory[] }>(`/members/${memberId}/level-history`),
 }
 
 // =============================================================================
@@ -634,7 +671,7 @@ export const memberLevelApi = {
 
 export interface Promotion {
   id: number
-  agent_id: number
+  agent_node_id: number
   name: string
   type: string
   description: string
