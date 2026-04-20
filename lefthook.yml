@@ -1,0 +1,25 @@
+# Lefthook pre-commit config — admin-web
+# Rules from: C:/project/lotto-system/docs/coding_standards.md
+# Install once: lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit
+
+    eslint:
+      glob: "*.{ts,tsx}"
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
+
+    no-debug-leftovers:
+      glob: "*.{ts,tsx}"
+      run: sh scripts/hooks/no-debug-web.sh {staged_files}
+
+commit-msg:
+  commands:
+    todo-format:
+      run: sh scripts/hooks/todo-format.sh {1}
