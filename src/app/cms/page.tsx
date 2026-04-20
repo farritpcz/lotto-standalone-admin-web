@@ -20,10 +20,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
-import { Image, MessageSquareText, FlaskConical, Palette, Plus } from 'lucide-react'
+import { Image, MessageSquareText, FlaskConical, Palette } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageUpload from '@/components/ImageUpload'
 import ThemeTab from '@/components/ThemeTab'
+import BannerManager, { Banner as BannerType } from '@/components/cms/BannerManager'
 
 // =============================================================================
 // TYPES — โครงสร้างข้อมูล CMS
@@ -40,14 +41,6 @@ interface Banner {
   sort_order: number
   is_active: boolean
   status?: string // ⭐ API ส่ง status: "active"/"inactive" — แปลงเป็น is_active ตอนโหลด
-}
-
-/** ฟอร์มแบนเนอร์ */
-interface BannerForm {
-  image_url: string
-  link_url: string
-  sort_order: number
-  is_active: boolean
 }
 
 /** รูปประเภทหวย */
@@ -86,11 +79,6 @@ export default function CMSPage() {
 
   // ----- State: Banners -----
   const [banners, setBanners] = useState<Banner[]>([])
-  const [showBannerModal, setShowBannerModal] = useState(false)
-  const [editingBannerId, setEditingBannerId] = useState<number | null>(null)
-  const [bannerForm, setBannerForm] = useState<BannerForm>({
-    image_url: '', link_url: '', sort_order: 1, is_active: true,
-  })
 
   // ----- State: Ticker -----
   const [tickerText, setTickerText] = useState('')
@@ -151,80 +139,6 @@ export default function CMSPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BANNER HANDLERS
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  /** เปิด modal เพิ่มแบนเนอร์ */
-  const openAddBanner = () => {
-    setEditingBannerId(null)
-    setBannerForm({ image_url: '', link_url: '', sort_order: banners.length + 1, is_active: true })
-    setShowBannerModal(true)
-  }
-
-  /** เปิด modal แก้ไขแบนเนอร์ */
-  const openEditBanner = (banner: Banner) => {
-    setEditingBannerId(banner.id)
-    setBannerForm({
-      image_url: banner.image_url,
-      link_url: banner.link_url,
-      sort_order: banner.sort_order,
-      is_active: banner.is_active,
-    })
-    setShowBannerModal(true)
-  }
-
-  /** บันทึกแบนเนอร์ (เพิ่ม/แก้ไข) */
-  const handleSaveBanner = async () => {
-    if (!bannerForm.image_url) {
-      setMessage({ type: 'error', text: 'กรุณากรอก URL รูปภาพ' })
-      return
-    }
-    try {
-      // ⭐ แปลง is_active → status สำหรับ API
-      const payload = { ...bannerForm, status: bannerForm.is_active ? 'active' : 'inactive' }
-      if (editingBannerId) {
-        await api.put(`/cms/banners/${editingBannerId}`, payload)
-      } else {
-        await api.post('/cms/banners', payload)
-      }
-      setShowBannerModal(false)
-      loadAllData()
-    } catch {
-      // mock: จัดการ state ตรงๆ
-      if (editingBannerId) {
-        setBanners(prev => prev.map(b =>
-          b.id === editingBannerId ? { ...b, ...bannerForm } : b
-        ))
-      } else {
-        setBanners(prev => [...prev, { id: Date.now(), ...bannerForm }])
-      }
-      setShowBannerModal(false)
-    }
-    setMessage({ type: 'success', text: editingBannerId ? 'แก้ไขแบนเนอร์สำเร็จ' : 'เพิ่มแบนเนอร์สำเร็จ' })
-  }
-
-  /** ลบแบนเนอร์ — ต้อง confirm */
-  const handleDeleteBanner = (banner: Banner) => {
-    setConfirmDialog({
-      title: 'ลบแบนเนอร์',
-      message: `ยืนยันลบแบนเนอร์ #${banner.sort_order}?\n${banner.image_url}`,
-      type: 'danger',
-      confirmLabel: 'ลบ',
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        try {
-          await api.delete(`/cms/banners/${banner.id}`)
-          loadAllData()
-        } catch {
-          setBanners(prev => prev.filter(b => b.id !== banner.id))
-        }
-        setMessage({ type: 'success', text: 'ลบแบนเนอร์สำเร็จ' })
-      },
-      onCancel: () => setConfirmDialog(null),
-    })
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -306,86 +220,15 @@ export default function CMSPage() {
       ) : (
         <>
           {/* ══════════════════════════════════════════════════════════════
-             TAB: แบนเนอร์
+             TAB: แบนเนอร์ (ใช้ BannerManager component — card grid + dnd)
              ══════════════════════════════════════════════════════════════ */}
           {activeTab === 'banners' && (
             <div className="card-surface" style={{ padding: 20 }}>
-              {/* Header + Add button */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div className="label">รายการแบนเนอร์ ({banners.length} รายการ)</div>
-                <button className="btn btn-primary" onClick={openAddBanner} style={{ height: 30, fontSize: 12 }}>
-                  <Plus size={12} strokeWidth={2} />
-                  เพิ่มแบนเนอร์
-                </button>
-              </div>
-
-              {banners.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-                  ยังไม่มีแบนเนอร์
-                </div>
-              ) : (
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>ลำดับ</th>
-                      <th>รูปภาพ</th>
-                      <th>ลิงก์</th>
-                      <th>สถานะ</th>
-                      <th style={{ textAlign: 'right' }}>จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {banners.sort((a, b) => a.sort_order - b.sort_order).map(banner => (
-                      <tr key={banner.id}>
-                        {/* ลำดับ */}
-                        <td className="mono" style={{ width: 60 }}>#{banner.sort_order}</td>
-                        {/* Preview รูปภาพ (thumbnail placeholder) */}
-                        <td>
-                          <div style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                          }}>
-                            {/* Image placeholder — จำลองภาพ */}
-                            <div style={{
-                              width: 80, height: 32, borderRadius: 4,
-                              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, color: 'var(--text-tertiary)', overflow: 'hidden',
-                            }}>
-                              <Image size={14} strokeWidth={1.5} style={{ opacity: 0.5 }} />
-                            </div>
-                            <span style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {banner.image_url}
-                            </span>
-                          </div>
-                        </td>
-                        {/* ลิงก์ */}
-                        <td className="secondary" style={{ fontSize: 12 }}>
-                          {banner.link_url || '-'}
-                        </td>
-                        {/* สถานะ */}
-                        <td>
-                          <span className={`badge ${banner.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                            {banner.is_active ? 'แสดง' : 'ซ่อน'}
-                          </span>
-                        </td>
-                        {/* จัดการ */}
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => openEditBanner(banner)}
-                              style={{ height: 28, padding: '0 8px', fontSize: 12 }}>
-                              แก้ไข
-                            </button>
-                            <button className="btn btn-danger" onClick={() => handleDeleteBanner(banner)}
-                              style={{ height: 28, padding: '0 8px', fontSize: 12 }}>
-                              ลบ
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <BannerManager
+                banners={banners as BannerType[]}
+                onChange={loadAllData}
+                onMessage={(m) => setMessage(m)}
+              />
             </div>
           )}
 
@@ -527,86 +370,6 @@ export default function CMSPage() {
              ══════════════════════════════════════════════════════════════ */}
           {activeTab === 'theme' && <ThemeTab />}
         </>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════
-         MODAL: เพิ่ม/แก้ไขแบนเนอร์
-         ══════════════════════════════════════════════════════════════════ */}
-      {showBannerModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 300,
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24, animation: 'fadeIn 0.15s ease',
-        }}>
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid var(--border)',
-            borderRadius: 12, padding: '24px', maxWidth: 440, width: '100%',
-            animation: 'fadeSlideUp 0.2s ease',
-          }}>
-            {/* Modal header */}
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, color: 'var(--text-primary)' }}>
-              {editingBannerId ? 'แก้ไขแบนเนอร์' : 'เพิ่มแบนเนอร์ใหม่'}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* URL รูปภาพ */}
-              <div>
-                <div className="label" style={{ marginBottom: 6 }}>URL รูปภาพ</div>
-                <input
-                  type="text" className="input" placeholder="เช่น /banners/promo-01.jpg"
-                  value={bannerForm.image_url}
-                  onChange={e => setBannerForm(f => ({ ...f, image_url: e.target.value }))}
-                />
-              </div>
-
-              {/* ลิงก์ปลายทาง */}
-              <div>
-                <div className="label" style={{ marginBottom: 6 }}>ลิงก์ (ถ้ามี)</div>
-                <input
-                  type="text" className="input" placeholder="เช่น /promotions/1 หรือ https://..."
-                  value={bannerForm.link_url}
-                  onChange={e => setBannerForm(f => ({ ...f, link_url: e.target.value }))}
-                />
-              </div>
-
-              {/* ลำดับแสดง */}
-              <div>
-                <div className="label" style={{ marginBottom: 6 }}>ลำดับแสดง</div>
-                <input
-                  type="number" className="input" min={1}
-                  value={bannerForm.sort_order}
-                  onChange={e => setBannerForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
-                />
-              </div>
-
-              {/* เปิด/ปิดแสดง */}
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox" checked={bannerForm.is_active}
-                  onChange={e => setBannerForm(f => ({ ...f, is_active: e.target.checked }))}
-                  style={{ accentColor: 'var(--accent)' }}
-                />
-                เปิดแสดงแบนเนอร์
-              </label>
-            </div>
-
-            {/* Modal buttons */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button className="btn btn-secondary" style={{ flex: 1, height: 38 }}
-                onClick={() => setShowBannerModal(false)}>
-                ยกเลิก
-              </button>
-              <button className="btn btn-primary" style={{ flex: 1, height: 38, fontWeight: 600 }}
-                onClick={handleSaveBanner}>
-                {editingBannerId ? 'บันทึกการแก้ไข' : 'เพิ่มแบนเนอร์'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── Confirm Dialog ───────────────────────────────────────────── */}
