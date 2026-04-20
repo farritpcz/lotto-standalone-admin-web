@@ -140,26 +140,54 @@ export default function DashboardPage() {
     )
   }
 
-  // ─── Stat Card Helper ──────────────────────────────────────────
-  const StatCard = ({ label, value, prev, icon: Icon, color }: {
-    label: string; value: number; prev: number; icon: React.ComponentType<{ size?: number }>; color: string
+  // ─── Stat Card Helper (Aurora Dark — gradient icon, big metric) ──
+  const StatCard = ({ label, value, prev, icon: Icon, variant = 'info', format = 'money' }: {
+    label: string; value: number; prev: number;
+    icon: React.ComponentType<{ size?: number }>;
+    variant?: 'brand' | 'violet' | 'warn' | 'danger' | 'info';
+    format?: 'money' | 'count';
   }) => {
     const pct = pctChange(value, prev)
+    const accentClass =
+      variant === 'violet' ? 'accent-violet' :
+      variant === 'warn'   ? 'accent-warn'   :
+      variant === 'danger' ? 'accent-danger' :
+      variant === 'info'   ? 'accent-info'   : ''
+    const iconClass =
+      variant === 'brand'  ? 'gradient' :
+      variant === 'violet' ? 'gradient-violet' :
+      variant === 'warn'   ? 'gradient-warn'   :
+      variant === 'danger' ? 'gradient-danger' :
+                             'gradient-info'
     return (
-      <div className="card-surface" style={{ padding: '18px 20px', borderLeft: `3px solid ${color}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div className="label" style={{ marginBottom: 8 }}>{label}</div>
-            <div className="metric" style={{ fontSize: 24, color }}>{fmt(value)}</div>
+      <div className={`stat-card ${accentClass}`}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="label" style={{ marginBottom: 10 }}>{label}</div>
+            <div className="metric" style={{ color: 'var(--text-primary)' }}>
+              {format === 'money' ? fmt(value) : (
+                <>{value.toLocaleString('th-TH')} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-secondary)' }}>/ คน</span></>
+              )}
+            </div>
           </div>
-          <div style={{ width: 42, height: 42, borderRadius: '50%', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={20} />
+          <div className={`stat-icon ${iconClass}`}>
+            <Icon size={18} />
           </div>
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          {pct >= 0 ? <TrendingUp size={14} color="#00e5a0" /> : <TrendingDown size={14} color="#ef4444" />}
-          <span style={{ color: pct >= 0 ? '#00e5a0' : '#ef4444', fontWeight: 600 }}>{pct >= 0 ? '+' : ''}{pct}%</span>
-          <span style={{ color: 'var(--text-tertiary)' }}>ตั้งแต่รายเดือน</span>
+        <div style={{
+          marginTop: 12, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
+          paddingTop: 10, borderTop: '1px dashed var(--border)',
+        }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 3,
+            padding: '2px 8px', borderRadius: 999, fontWeight: 700,
+            background: pct >= 0 ? 'var(--status-success-bg)' : 'var(--status-error-bg)',
+            color: pct >= 0 ? 'var(--status-success)' : 'var(--status-error)',
+          }}>
+            {pct >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {pct >= 0 ? '+' : ''}{pct}%
+          </span>
+          <span style={{ color: 'var(--text-tertiary)' }}>เทียบเดือนก่อน</span>
         </div>
       </div>
     )
@@ -168,30 +196,29 @@ export default function DashboardPage() {
   return (
     <div className="page-container">
       {/* ═══ Header + Date Filter ════════════════════════════════════ */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>ภาพรวมระบบ</h1>
-        <button className="btn btn-ghost" onClick={() => loadData()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">ภาพรวมระบบ</h1>
+          <p className="page-subtitle">ดูภาพรวมยอดฝาก ถอน กำไร และสมาชิกใหม่</p>
+        </div>
+        <button className="btn btn-secondary" onClick={() => loadData()}>
           <RefreshCw size={14} /> รีเฟรช
         </button>
       </div>
 
-      {/* ── Date Filter Bar ──────────────────────────────────────── */}
-      <div className="card-surface" style={{ padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {/* ── Date Filter Bar (Segmented control) ──────────────────── */}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="segmented" style={{ flexWrap: 'wrap' }}>
         {presets.map(p => (
           <button
             key={p.key}
             onClick={() => handlePreset(p.key)}
-            style={{
-              padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-              background: activePreset === p.key ? 'var(--accent)' : 'var(--bg-elevated)',
-              color: activePreset === p.key ? '#000' : 'var(--text-secondary)',
-              transition: 'all 0.15s',
-            }}
+            data-active={activePreset === p.key}
           >
             {p.label}
           </button>
         ))}
+        </div>
 
         {/* Custom date inputs */}
         {activePreset === 'custom' && (
@@ -210,30 +237,11 @@ export default function DashboardPage() {
       </div>
 
       {/* ═══ Row 1: Top 4 Stat Cards ══════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <StatCard label="ยอดฝาก" value={s!.deposits_this_month} prev={s!.deposits_last_month} icon={ArrowDownToLine} color="#3b82f6" />
-        <StatCard label="การถอนเงิน" value={s!.withdrawals_this_month} prev={s!.withdrawals_last_month} icon={ArrowUpFromLine} color="#ef4444" />
-        <StatCard label="กำไร/ขาดทุน (เบื้องต้น)" value={s!.profit_this_month} prev={s!.profit_last_month} icon={DollarSign} color="#00e5a0" />
-        <div className="card-surface" style={{ padding: '18px 20px', borderLeft: '3px solid #f5a623' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div className="label" style={{ marginBottom: 8 }}>สมาชิกใหม่</div>
-              <div className="metric" style={{ fontSize: 24, color: '#f5a623' }}>
-                {s!.new_members_this_month} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-secondary)' }}>/ คน</span>
-              </div>
-            </div>
-            <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#f5a62315', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserPlus size={20} />
-            </div>
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-            {(() => { const p = pctChange(s!.new_members_this_month, s!.new_members_last_month); return (<>
-              {p >= 0 ? <TrendingUp size={14} color="#00e5a0" /> : <TrendingDown size={14} color="#ef4444" />}
-              <span style={{ color: p >= 0 ? '#00e5a0' : '#ef4444', fontWeight: 600 }}>{p >= 0 ? '+' : ''}{p}%</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>ตั้งแต่รายเดือน</span>
-            </>)})()}
-          </div>
-        </div>
+      <div className="grid-stats" style={{ marginBottom: 24 }}>
+        <StatCard label="ยอดฝาก" value={s!.deposits_this_month} prev={s!.deposits_last_month} icon={ArrowDownToLine} variant="info" />
+        <StatCard label="การถอนเงิน" value={s!.withdrawals_this_month} prev={s!.withdrawals_last_month} icon={ArrowUpFromLine} variant="danger" />
+        <StatCard label="กำไร/ขาดทุน (เบื้องต้น)" value={s!.profit_this_month} prev={s!.profit_last_month} icon={DollarSign} variant="brand" />
+        <StatCard label="สมาชิกใหม่" value={s!.new_members_this_month} prev={s!.new_members_last_month} icon={UserPlus} variant="warn" format="count" />
       </div>
 
       {/* ═══ Row 2: Top Bettors + Chart ═══════════════════════════════ */}
@@ -272,18 +280,36 @@ export default function DashboardPage() {
           <div style={{ width: '100%', height: 280 }}>
             <ResponsiveContainer>
               <LineChart data={data.chart_data || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => v?.slice(8)} />
-                <YAxis tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <defs>
+                  <linearGradient id="gradDeposit" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#00e5a0" />
+                  </linearGradient>
+                  <linearGradient id="gradWithdraw" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#ef4444" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} tickFormatter={v => v?.slice(8)} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                  cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  contentStyle={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-hover)',
+                    borderRadius: 10,
+                    fontSize: 12,
+                    boxShadow: 'var(--shadow-lg)',
+                    backdropFilter: 'blur(8px)',
+                  }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={((v: any) => [fmtShort(Number(v || 0)), '']) as any}
                   labelFormatter={l => `วันที่ ${l}`}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="deposits" stroke="#3b82f6" name="ฝากเงิน" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="withdrawals" stroke="#ef4444" name="ถอนเงิน" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="deposits" stroke="url(#gradDeposit)" name="ฝากเงิน" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--bg-base)' }} />
+                <Line type="monotone" dataKey="withdrawals" stroke="url(#gradWithdraw)" name="ถอนเงิน" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--bg-base)' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

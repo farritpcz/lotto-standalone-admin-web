@@ -111,43 +111,68 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '12px 16px',
-        background: '#1a1a1a',
-        border: `1px solid ${cfg.borderColor}33`,
-        borderLeft: `3px solid ${cfg.borderColor}`,
-        borderRadius: 8,
-        color: '#ededed',
+        gap: 12,
+        padding: '12px 14px 12px 16px',
+        background: 'var(--bg-elevated)',
+        border: `1px solid ${cfg.borderColor}40`,
+        borderRadius: 10,
+        color: 'var(--text-primary)',
         fontSize: 13,
         fontWeight: 500,
-        minWidth: 280,
-        maxWidth: 400,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        minWidth: 300,
+        maxWidth: 420,
+        boxShadow: `0 18px 40px rgba(0,0,0,0.45), 0 0 0 1px ${cfg.borderColor}20, inset 0 1px 0 rgba(255,255,255,0.05)`,
+        backdropFilter: 'blur(12px)',
         animation: item.exiting
-          ? 'toastSlideOut 0.25s ease forwards'
-          : 'toastSlideIn 0.25s ease forwards',
+          ? 'toastSlideOut 0.25s var(--ease-smooth) forwards'
+          : 'toastSlideIn 0.3s var(--ease-bounce) forwards',
         pointerEvents: 'auto' as const,
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      {/* Icon */}
-      <div style={{ color: cfg.iconColor, flexShrink: 0, display: 'flex' }}>
+      {/* Accent bar (left) */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+        background: `linear-gradient(180deg, ${cfg.borderColor}, ${cfg.borderColor}88)`,
+        boxShadow: `0 0 12px ${cfg.borderColor}60`,
+      }} />
+
+      {/* Icon tile */}
+      <div style={{
+        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `${cfg.iconColor}15`,
+        color: cfg.iconColor,
+        boxShadow: `inset 0 0 0 1px ${cfg.iconColor}25`,
+      }}>
         {cfg.icon}
       </div>
 
       {/* Message */}
-      <div style={{ flex: 1, lineHeight: 1.4 }}>{item.message}</div>
+      <div style={{ flex: 1, lineHeight: 1.45 }}>{item.message}</div>
 
       {/* Close button */}
       <button
         onClick={() => onClose(item.id)}
         style={{
-          background: 'none',
+          background: 'transparent',
           border: 'none',
-          color: '#666',
+          color: 'var(--text-tertiary)',
           cursor: 'pointer',
-          padding: 2,
+          padding: 4,
+          borderRadius: 4,
           display: 'flex',
           flexShrink: 0,
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--bg-hover)'
+          e.currentTarget.style.color = 'var(--text-primary)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent'
+          e.currentTarget.style.color = 'var(--text-tertiary)'
         }}
       >
         <X size={14} />
@@ -253,21 +278,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         @keyframes toastSlideIn {
           from {
             opacity: 0;
-            transform: translateX(40px) translateY(-8px);
+            transform: translateX(40px) scale(0.92);
           }
           to {
             opacity: 1;
-            transform: translateX(0) translateY(0);
+            transform: translateX(0) scale(1);
           }
         }
         @keyframes toastSlideOut {
           from {
             opacity: 1;
-            transform: translateX(0) translateY(0);
+            transform: translateX(0) scale(1);
           }
           to {
             opacity: 0;
-            transform: translateX(40px) translateY(-8px);
+            transform: translateX(40px) scale(0.92);
           }
         }
       `}</style>

@@ -34,13 +34,17 @@ export default function Loading({ inline, text }: { inline?: boolean; text?: str
 
 // ─── Spinner Circle ────────────────────────────────────────────────
 function Spinner({ size = 24 }: { size?: number }) {
+  // Conic gradient spinner — premium look (teal → cyan sweep)
+  const thickness = Math.max(2, size / 10)
   return (
     <div style={{
       width: size, height: size,
-      border: `${Math.max(2, size / 10)}px solid rgba(255,255,255,0.08)`,
-      borderTopColor: 'var(--accent)',
       borderRadius: '50%',
-      animation: 'spin 0.7s linear infinite',
+      background: 'conic-gradient(from 0deg, transparent 0deg, var(--accent) 300deg, var(--accent-strong) 360deg)',
+      mask: `radial-gradient(farthest-side, transparent calc(50% - ${thickness}px), #000 calc(50% - ${thickness}px + 1px))`,
+      WebkitMask: `radial-gradient(farthest-side, transparent calc(50% - ${thickness}px), #000 calc(50% - ${thickness}px + 1px))`,
+      animation: 'spin 0.9s linear infinite',
+      filter: 'drop-shadow(0 0 4px var(--accent-ring))',
     }} />
   )
 }
@@ -53,9 +57,10 @@ export function LoadingSkeleton({ rows = 3, style }: { rows?: number; style?: Re
         <div key={i} style={{
           height: 14, borderRadius: 6,
           width: `${60 + Math.random() * 40}%`,
-          background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)',
+          background: 'linear-gradient(90deg, var(--bg-elevated) 0%, var(--bg-raised) 40%, var(--accent-subtle) 50%, var(--bg-raised) 60%, var(--bg-elevated) 100%)',
           backgroundSize: '200% 100%',
-          animation: 'shimmer 1.5s ease-in-out infinite',
+          animation: 'shimmer 1.8s ease-in-out infinite',
+          animationDelay: `${i * 0.08}s`,
         }} />
       ))}
     </div>

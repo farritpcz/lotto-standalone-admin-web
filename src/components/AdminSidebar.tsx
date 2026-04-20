@@ -25,70 +25,73 @@ import {
   ArrowDownToLine, ArrowUpFromLine, ArrowDownUp, ClipboardList, Receipt,
   Star, Gift, BarChart3, Link2, UsersRound, Globe, FileText,
   Settings, CreditCard, Bell, ChevronLeft, ChevronRight,
-  GitBranch, TrendingUp,
+  GitBranch, FileBarChart,
   type LucideIcon,
 } from 'lucide-react'
+import ThemeToggle from './ThemeToggle'
 
 // =============================================================================
 // เมนู items — แบ่ง group, ใช้ Lucide icons
 // export เพื่อให้ CommandPalette + Breadcrumbs ใช้ร่วมได้
 // =============================================================================
-export const menuGroups: { label: string; items: { href: string; label: string; icon: LucideIcon; badge?: 'deposits' | 'withdrawals' }[] }[] = [
+// ⭐ Permission mapping — เมนูไหนต้องมี permission อะไร
+// null = ทุกคนเห็น, string = ต้องมี permission นั้น (หรือ wildcard)
+type MenuItem = { href: string; label: string; icon: LucideIcon; badge?: 'deposits' | 'withdrawals'; perm?: string | null }
+
+export const menuGroups: { label: string; items: MenuItem[] }[] = [
   {
     label: 'Overview',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/members', label: 'สมาชิก', icon: Users },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard.view' },
+      { href: '/members', label: 'สมาชิก', icon: Users, perm: 'members.view' },
     ],
   },
   {
     label: 'หวย',
     items: [
-      { href: '/lotteries', label: 'ประเภทหวย', icon: Ticket },
-      { href: '/rounds', label: 'รอบหวย', icon: Clock },
-      { href: '/results', label: 'กรอกผล', icon: CheckCircle },
-      { href: '/bans', label: 'เลขอั้น', icon: Ban },
-      { href: '/bans/auto', label: 'อั้นอัตโนมัติ', icon: Zap },
-      { href: '/rates', label: 'อัตราจ่าย', icon: DollarSign },
-      { href: '/yeekee', label: 'ยี่กี', icon: Zap },
+      { href: '/lotteries', label: 'ประเภทหวย', icon: Ticket, perm: 'lottery.view' },
+      { href: '/rounds', label: 'รอบหวย', icon: Clock, perm: 'lottery.view' },
+      { href: '/bans', label: 'เลขอั้น', icon: Ban, perm: 'lottery.bans' },
+      { href: '/bans/auto', label: 'อั้นอัตโนมัติ', icon: Zap, perm: 'lottery.bans' },
+      { href: '/rates', label: 'อัตราจ่าย', icon: DollarSign, perm: 'lottery.rates' },
+      { href: '/yeekee', label: 'ยี่กี', icon: Zap, perm: 'lottery.view' },
     ],
   },
   {
     label: 'การเงิน',
     items: [
-      { href: '/deposits', label: 'รายการฝาก', icon: ArrowDownToLine, badge: 'deposits' },
-      { href: '/withdrawals', label: 'รายการถอน', icon: ArrowUpFromLine, badge: 'withdrawals' },
-      { href: '/bets', label: 'รายการแทง', icon: ClipboardList },
-      { href: '/transactions', label: 'ธุรกรรม', icon: Receipt },
+      { href: '/deposits', label: 'รายการฝาก', icon: ArrowDownToLine, badge: 'deposits', perm: 'finance.deposits' },
+      { href: '/withdrawals', label: 'รายการถอน', icon: ArrowUpFromLine, badge: 'withdrawals', perm: 'finance.withdrawals' },
+      { href: '/bets', label: 'รายการแทง', icon: ClipboardList, perm: 'finance.bets' },
+      { href: '/transactions', label: 'ธุรกรรม', icon: Receipt, perm: 'finance.transactions' },
     ],
   },
   {
     label: 'สมาชิก',
     items: [
-      { href: '/member-levels', label: 'Level สมาชิก', icon: Star },
-      { href: '/promotions', label: 'โปรโมชั่น', icon: Gift },
+      { href: '/member-levels', label: 'Level สมาชิก', icon: Star, perm: 'system.cms' },
+      { href: '/promotions', label: 'โปรโมชั่น', icon: Gift, perm: 'system.cms' },
     ],
   },
   {
     label: 'สายงาน',
     items: [
-      { href: '/downline', label: 'จัดการสายงาน', icon: GitBranch },
-      { href: '/downline/profits', label: 'กำไรสายงาน', icon: TrendingUp },
+      { href: '/downline', label: 'จัดการสายงาน', icon: GitBranch, perm: 'system.affiliate' },
+      { href: '/downline/report', label: 'รายงานเคลีย', icon: FileBarChart, perm: 'system.affiliate' },
     ],
   },
   {
     label: 'ระบบ',
     items: [
-      { href: '/reports', label: 'รายงาน', icon: BarChart3 },
-      { href: '/affiliate', label: 'Affiliate', icon: Link2 },
-      { href: '/staff', label: 'พนักงาน', icon: UsersRound },
-      { href: '/cms', label: 'จัดการเว็บ', icon: Globe },
-      { href: '/activity-log', label: 'Activity Log', icon: FileText },
-      // { href: '/settings', label: 'ตั้งค่า', icon: Settings }, // TODO: ยังไม่ได้ใช้
-      { href: '/settings/deposit-withdraw', label: 'ตั้งค่าฝาก/ถอน', icon: ArrowDownUp },
-      { href: '/settings/bank-accounts', label: 'บัญชีฝาก/ถอน', icon: CreditCard },
-      { href: '/contact-channels', label: 'ช่องทางติดต่อ', icon: Bell },
-      { href: '/settings/notifications', label: 'แจ้งเตือน', icon: Bell },
+      { href: '/reports', label: 'รายงาน', icon: BarChart3, perm: 'reports.view' },
+      { href: '/affiliate', label: 'Affiliate', icon: Link2, perm: 'system.affiliate' },
+      { href: '/staff', label: 'พนักงาน', icon: UsersRound, perm: 'system.staff' },
+      { href: '/cms', label: 'จัดการเว็บ', icon: Globe, perm: 'system.cms' },
+      { href: '/activity-log', label: 'Activity Log', icon: FileText, perm: 'system.staff' },
+      { href: '/settings/deposit-withdraw', label: 'ตั้งค่าฝาก/ถอน', icon: ArrowDownUp, perm: 'system.settings' },
+      { href: '/settings/bank-accounts', label: 'บัญชีฝาก/ถอน', icon: CreditCard, perm: 'system.settings' },
+      { href: '/contact-channels', label: 'ช่องทางติดต่อ', icon: Bell, perm: 'system.cms' },
+      { href: '/settings/notifications', label: 'แจ้งเตือน', icon: Bell, perm: 'system.settings' },
     ],
   },
 ]
@@ -116,10 +119,18 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
   // ⭐ ตรวจว่าเป็น node user (สายงาน) หรือไม่ — จำกัดเมนูที่เห็น
   const [isNodeUser, setIsNodeUser] = useState(false)
   const [nodeName, setNodeName] = useState('')
+  // ⭐ User role + permissions — ซ่อนเมนูที่ไม่มีสิทธิ์
+  const [userRole, setUserRole] = useState('owner')
+  const [userPermissions, setUserPermissions] = useState<string[]>([])
   useEffect(() => {
     const ut = localStorage.getItem('user_type')
     setIsNodeUser(ut === 'node')
     setNodeName(localStorage.getItem('node_name') || '')
+    setUserRole(localStorage.getItem('admin_role') || 'owner')
+    try {
+      const perms = JSON.parse(localStorage.getItem('admin_permissions') || '[]')
+      setUserPermissions(Array.isArray(perms) ? perms : [])
+    } catch { setUserPermissions([]) }
   }, [])
 
   // Collapse state — อ่านจาก localStorage ตอน mount
@@ -186,12 +197,18 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
           justifyContent: isCollapsed ? 'center' : 'flex-start',
         }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-            background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, color: 'black', fontSize: 13,
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            background: 'var(--gradient-brand)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, color: 'var(--text-on-accent)', fontSize: 14,
+            boxShadow: 'var(--shadow-glow-accent), var(--shadow-inset-top)',
+            letterSpacing: '-0.02em',
           }}>L</div>
           {!isCollapsed && (
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            <span style={{
+              fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)',
+              letterSpacing: '-0.015em', whiteSpace: 'nowrap',
+            }}>
               {isNodeUser ? nodeName || 'สายงาน' : 'LOTTO Admin'}
             </span>
           )}
@@ -200,11 +217,27 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
         {/* ── Nav groups ────────────────────────────────────────────────────── */}
         <nav style={{ flex: 1, padding: isCollapsed ? '4px 4px' : '4px 8px' }}>
           {menuGroups.map((group, gi) => {
-            // ⭐ node user: ซ่อนเมนูที่ไม่เกี่ยว (กรอกผล — ห้ามเว็บกรอกผลเอง)
-            const nodeHiddenPaths = ['/results']
-            const filteredItems = isNodeUser
-              ? group.items.filter(item => !nodeHiddenPaths.includes(item.href))
-              : group.items
+            // ⭐ Permission-based menu filtering
+            // owner/admin → เห็นทุกเมนู
+            // operator → เห็นเฉพาะเมนูที่มี permission (รองรับ wildcard เช่น members.*)
+            // viewer → เห็นเฉพาะเมนูที่ GET ได้ (ดูอย่างเดียว)
+            const canAccess = (perm: string | null | undefined) => {
+              if (!perm) return true // null = ทุกคนเห็น
+              if (userRole === 'owner' || userRole === 'admin') return true
+              // ⭐ node user (สายงาน) = มีเว็บเป็นของตัวเอง → เห็นเมนูทั้งหมด
+              // scope ข้อมูลทำที่ backend (NodeScope middleware) แล้ว
+              if (isNodeUser) return true
+              // operator: เช็ค exact match หรือ wildcard
+              return userPermissions.some(p => {
+                if (p === perm) return true
+                if (p.endsWith('.*')) {
+                  const prefix = p.replace('.*', '.')
+                  return perm.startsWith(prefix)
+                }
+                return false
+              })
+            }
+            const filteredItems = group.items.filter(item => canAccess(item.perm))
             if (filteredItems.length === 0) return null
 
             return (
@@ -240,47 +273,63 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
                     title={isCollapsed ? item.label : undefined}
                     style={{
                       display: 'flex', alignItems: 'center',
-                      gap: isCollapsed ? 0 : 8,
-                      height: 32,
-                      padding: isCollapsed ? '0' : '0 8px',
+                      gap: isCollapsed ? 0 : 10,
+                      height: 34,
+                      padding: isCollapsed ? '0' : '0 10px',
                       justifyContent: isCollapsed ? 'center' : 'flex-start',
-                      borderRadius: 6, fontSize: 13,
+                      borderRadius: 8, fontSize: 13,
                       textDecoration: 'none',
-                      fontWeight: isActive ? 500 : 400,
+                      fontWeight: isActive ? 600 : 500,
                       color: isActive ? 'var(--accent-text)' : 'var(--text-secondary)',
-                      background: isActive ? 'var(--accent-subtle)' : 'transparent',
-                      borderLeft: isCollapsed ? 'none' : (isActive ? '2px solid var(--accent)' : '2px solid transparent'),
-                      transition: 'all 0.15s ease',
-                      marginBottom: 1,
+                      background: isActive
+                        ? 'linear-gradient(90deg, var(--accent-subtle), transparent 70%)'
+                        : 'transparent',
+                      boxShadow: isActive && !isCollapsed ? 'inset 3px 0 0 var(--accent)' : 'none',
+                      transition: 'background 0.18s var(--ease-smooth), color 0.15s var(--ease-smooth), transform 0.15s var(--ease-smooth)',
+                      marginBottom: 2,
                       position: 'relative',
-                      // stagger animation
-                      animation: 'fadeSlideUp 0.2s ease backwards',
+                      animation: 'fadeSlideUp 0.2s var(--ease-smooth) backwards',
                       animationDelay: `${(gi * 4 + ii) * 30}ms`,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'var(--bg-hover)'
+                        e.currentTarget.style.color = 'var(--text-primary)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.color = 'var(--text-secondary)'
+                      }
                     }}
                   >
                     {/* Icon (Lucide) */}
-                    <item.icon size={15} strokeWidth={1.5} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.6 }} />
+                    <item.icon size={16} strokeWidth={1.75} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.75 }} />
 
                     {!isCollapsed && <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
 
-                    {/* Badge — ซ่อนเมื่อ collapsed, แสดงเป็น dot แทน */}
+                    {/* Badge — gradient red + pulse */}
                     {badgeCount > 0 && !isCollapsed && (
                       <span style={{
-                        background: 'var(--status-error)',
-                        color: 'white', fontSize: 10, fontWeight: 700,
-                        padding: '1px 6px', borderRadius: 8,
+                        background: 'var(--gradient-danger)',
+                        color: 'white', fontSize: 10, fontWeight: 800,
+                        padding: '1px 7px', borderRadius: 999,
                         minWidth: 18, textAlign: 'center',
                         fontVariantNumeric: 'tabular-nums',
+                        boxShadow: '0 0 0 2px rgba(239,68,68,0.2), 0 2px 6px rgba(239,68,68,0.35)',
+                        letterSpacing: 0,
                       }}>
                         {badgeCount}
                       </span>
                     )}
-                    {/* Collapsed badge dot */}
                     {badgeCount > 0 && isCollapsed && (
                       <span style={{
-                        position: 'absolute', top: 4, right: 8,
-                        width: 6, height: 6, borderRadius: '50%',
+                        position: 'absolute', top: 4, right: 6,
+                        width: 7, height: 7, borderRadius: '50%',
                         background: 'var(--status-error)',
+                        boxShadow: '0 0 0 2px rgba(239,68,68,0.35)',
+                        animation: 'glowPulse 1.8s ease-in-out infinite',
                       }} />
                     )}
                   </Link>
@@ -291,8 +340,13 @@ export default function AdminSidebar({ pendingDeposits = 0, pendingWithdrawals =
           })}
         </nav>
 
-        {/* ── Footer: Collapse toggle + Logout ─────────────────────────────── */}
+        {/* ── Footer: Theme + Collapse + Logout ─────────────────────────── */}
         <div style={{ padding: isCollapsed ? '8px 4px' : '8px 14px', borderTop: '1px solid var(--border)' }}>
+          {/* Theme toggle */}
+          <div style={{ marginBottom: 4 }}>
+            <ThemeToggle compact={isCollapsed} />
+          </div>
+
           {/* Collapse toggle button */}
           <button
             onClick={toggleCollapse}
