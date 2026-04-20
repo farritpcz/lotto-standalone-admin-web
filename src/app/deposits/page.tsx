@@ -7,15 +7,10 @@
  * - 4 stat cards: รอดำเนินการ / อนุมัติวันนี้ / ยอดฝากวันนี้ / ทั้งหมด
  * - Filter tabs + search (debounce 400ms)
  * - ตาราง: ID, สมาชิก, จำนวน, สลิป, สถานะ, วันที่, จัดการ
- * - Detail modal (สลิป + ข้อมูล + action buttons)
- * - Toast feedback สำหรับทุก action
+ * - Detail modal (สลิป + ข้อมูล + action buttons) → DepositDetailModal.tsx
+ * - Cancel modal (เลือก หักเครดิต/ไม่หัก) → CancelModal.tsx
  *
- * Bug Fixes:
- * - ✅ Cancel เรียก depositApi.cancel() แทน reject()
- * - ✅ alert() → toast.error() + toast.success()
- * - ✅ search debounce 400ms
- * - ✅ hardcode colors → design tokens
- *
+ * Split 2026-04-21: config/types/helpers → _config.ts; StatCard/DetailField → _shared.tsx
  * API: depositApi.list(), .approve(), .reject(), .cancel()
  */
 'use client'
@@ -28,61 +23,15 @@ import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import LogHistoryModal from '@/components/LogHistoryModal'
 import {
   ArrowDownToLine, Clock, CheckCircle, XCircle,
-  Search, RefreshCw, Eye, FileText, ImageIcon, History, Calendar,
+  Search, RefreshCw, FileText, ImageIcon, History, Calendar,
 } from 'lucide-react'
-
-// ─── Status config ───────────────────────────────────────────────────
-const statusMap: Record<string, { cls: string; label: string }> = {
-  pending:   { cls: 'badge-warning', label: 'รอดำเนินการ' },
-  approved:  { cls: 'badge-success', label: 'อนุมัติแล้ว' },
-  rejected:  { cls: 'badge-error', label: 'ปฏิเสธ' },
-  cancelled: { cls: 'badge-neutral', label: 'ยกเลิก' },
-  unmatched: { cls: 'badge-warning', label: 'ไม่ตรงยอด' },
-  expired:   { cls: 'badge-neutral', label: 'หมดอายุ' },
-}
-
-// ─── Filter tabs (ใช้กรอง status) ────────────────────────────────────
-const filterTabs = [
-  { key: '', label: 'ทั้งหมด', icon: FileText },
-  { key: 'pending', label: 'รอดำเนินการ', icon: Clock },
-  { key: 'approved', label: 'อนุมัติแล้ว', icon: CheckCircle },
-  { key: 'rejected', label: 'ปฏิเสธ', icon: XCircle },
-  { key: 'unmatched', label: 'ไม่ตรงยอด', icon: ArrowDownToLine },
-]
-
-// ─── Types ───────────────────────────────────────────────────────────
-interface DepositRow {
-  id: number; member_id: number; username: string
-  amount: number; status: string; created_at: string
-  approved_at?: string; note?: string; reject_reason?: string
-  slip_url?: string | null; auto_matched?: boolean
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────
-const fmtId = (id: number) => `DPS${String(id).padStart(5, '0')}`
-const fmtMoney = (n: number) => `฿${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const fmtDate = (s: string) => {
-  try {
-    return new Date(s).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })
-  } catch { return s }
-}
-// ⭐ relative time เช่น "2 นาทีที่แล้ว"
-const relTime = (s: string) => {
-  try {
-    const diff = Date.now() - new Date(s).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'เมื่อกี้'
-    if (mins < 60) return `${mins} นาทีที่แล้ว`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs} ชม.ที่แล้ว`
-    return `${Math.floor(hrs / 24)} วันที่แล้ว`
-  } catch { return '' }
-}
-// ⭐ ดึง error message จาก API response
-const getErrMsg = (err: unknown) =>
-  (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'เกิดข้อผิดพลาด'
-
-const PER_PAGE = 20
+import {
+  statusMap, filterTabs, fmtId, fmtMoney, fmtDate, relTime, getErrMsg, PER_PAGE,
+  type DepositRow,
+} from './_config'
+import StatCard from '@/components/admin/StatCard'
+import DepositDetailModal from './DepositDetailModal'
+import CancelModal from './CancelModal'
 
 // ─── Component ───────────────────────────────────────────────────────
 export default function DepositsPage() {
@@ -97,7 +46,7 @@ export default function DepositsPage() {
   const [total, setTotal] = useState(0)
   const [selectedRow, setSelectedRow] = useState<DepositRow | null>(null)
   const [confirmDlg, setConfirmDlg] = useState<ConfirmDialogProps | null>(null)
-  const [cancelModal, setCancelModal] = useState<DepositRow | null>(null) // ⭐ modal ยกเลิก (เลือก หัก/ไม่หักเครดิต)
+  const [cancelModal, setCancelModal] = useState<DepositRow | null>(null) // ⭐ modal ยกเลิก
   const [cancelReason, setCancelReason] = useState('')
   const [logModal, setLogModal] = useState<number | null>(null) // ⭐ ID ของรายการที่ดู timeline
   const [dateFilter, setDateFilter] = useState('') // 'today' | 'yesterday' | 'custom' | ''
@@ -338,6 +287,7 @@ export default function DepositsPage() {
                       {row.slip_url ? (
                         <a href={row.slip_url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                           style={{ display: 'inline-block', width: 36, height: 36, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={row.slip_url} alt="slip" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </a>
                       ) : (
@@ -400,123 +350,26 @@ export default function DepositsPage() {
         )}
       </div>
 
-      {/* ══ Detail Modal ═══════════════════════════════════════════════ */}
+      {/* Detail Modal */}
       {selectedRow && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 200,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-        }} onClick={() => setSelectedRow(null)}>
-          <div className="card-surface" style={{ width: '100%', maxWidth: 480, padding: 24 }}
-            onClick={e => e.stopPropagation()}>
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Eye size={20} color="var(--accent)" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)' }}>{fmtId(selectedRow.id)}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>รายละเอียดรายการฝากเงิน</div>
-                </div>
-              </div>
-              <button onClick={() => setSelectedRow(null)} className="btn btn-ghost" style={{ width: 32, height: 32, padding: 0 }}>✕</button>
-            </div>
-
-            {/* สลิปโอนเงิน */}
-            {selectedRow.slip_url && (
-              <div style={{ marginBottom: 16, textAlign: 'center' }}>
-                <a href={selectedRow.slip_url} target="_blank" rel="noopener">
-                  <img src={selectedRow.slip_url} alt="slip"
-                    style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, border: '1px solid var(--border)' }} />
-                </a>
-              </div>
-            )}
-
-            {/* รายละเอียด */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <DetailField label="สมาชิก" value={selectedRow.username || `ID:${selectedRow.member_id}`} />
-              <DetailField label="จำนวนเงิน" value={fmtMoney(selectedRow.amount)} color="var(--accent)" bold />
-              <DetailField label="สถานะ">
-                <span className={`badge ${(statusMap[selectedRow.status] || statusMap.pending).cls}`}>
-                  {(statusMap[selectedRow.status] || statusMap.pending).label}
-                </span>
-                {selectedRow.auto_matched && <span className="badge badge-info" style={{ marginLeft: 6, fontSize: 10 }}>AUTO MATCHED</span>}
-              </DetailField>
-              <DetailField label="วันที่แจ้ง" value={`${fmtDate(selectedRow.created_at)} (${relTime(selectedRow.created_at)})`} />
-              {selectedRow.approved_at && <DetailField label="วันที่ดำเนินการ" value={fmtDate(selectedRow.approved_at)} />}
-              {selectedRow.reject_reason && <DetailField label="เหตุผล" value={selectedRow.reject_reason} color="var(--status-error)" />}
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              {selectedRow.status === 'pending' && (
-                <>
-                  <button onClick={() => { const r = selectedRow; setSelectedRow(null); handleApprove(r) }}
-                    className="btn btn-success" style={{ flex: 1, height: 36, gap: 4 }}>
-                    <CheckCircle size={15} /> อนุมัติ
-                  </button>
-                  <button onClick={() => { const r = selectedRow; setSelectedRow(null); handleReject(r) }}
-                    className="btn btn-danger" style={{ flex: 1, height: 36, gap: 4 }}>
-                    <XCircle size={15} /> ปฏิเสธ
-                  </button>
-                </>
-              )}
-              {selectedRow.status === 'approved' && (
-                <button onClick={() => { const r = selectedRow; setSelectedRow(null); handleCancel(r) }}
-                  className="btn btn-danger" style={{ flex: 1, height: 36, gap: 4 }}>
-                  <XCircle size={15} /> ยกเลิกรายการ
-                </button>
-              )}
-              <button onClick={() => setSelectedRow(null)} className="btn btn-secondary" style={{ flex: 1, height: 36 }}>ปิด</button>
-            </div>
-          </div>
-        </div>
+        <DepositDetailModal
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onCancel={handleCancel}
+        />
       )}
 
-      {/* ══ Cancel Modal — เลือก หักเครดิต / ไม่หัก ═══════════════════ */}
+      {/* Cancel Modal */}
       {cancelModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 300,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-        }}>
-          <div className="card-surface" style={{ padding: 24, maxWidth: 420, width: '100%', textAlign: 'center' }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 16, margin: '0 auto 16px',
-              background: 'var(--status-error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <XCircle size={28} color="var(--status-error)" />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--status-error)', marginBottom: 4 }}>ยกเลิกรายการที่อนุมัติแล้ว</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-              {fmtId(cancelModal.id)} — <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{fmtMoney(cancelModal.amount)}</span> ของ {cancelModal.username}
-            </div>
-
-            {/* เหตุผล */}
-            <div style={{ textAlign: 'left', marginBottom: 16 }}>
-              <div className="label" style={{ marginBottom: 4 }}>เหตุผล (ไม่บังคับ)</div>
-              <textarea className="input" rows={2} placeholder="เช่น ฝากซ้ำ, ยอดไม่ตรง..."
-                value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-                style={{ height: 'auto', padding: '8px 12px', resize: 'none' }} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              <button onClick={() => doCancel(cancelModal, true)}
-                className="btn btn-danger" style={{ width: '100%', height: 42, gap: 8, justifyContent: 'center' }}>
-                <XCircle size={16} /> ยกเลิก + ดึงเครดิตคืน
-              </button>
-              <button onClick={() => doCancel(cancelModal, false)}
-                className="btn btn-secondary" style={{ width: '100%', height: 42, gap: 8, justifyContent: 'center' }}>
-                <CheckCircle size={16} /> ยกเลิก + ไม่ดึงเครดิต
-              </button>
-            </div>
-            <button onClick={() => setCancelModal(null)} className="btn btn-ghost" style={{ width: '100%' }}>ปิด</button>
-          </div>
-        </div>
+        <CancelModal
+          row={cancelModal}
+          reason={cancelReason}
+          onReasonChange={setCancelReason}
+          onConfirm={(refund) => doCancel(cancelModal, refund)}
+          onClose={() => setCancelModal(null)}
+        />
       )}
 
       {/* ConfirmDialog */}
@@ -530,37 +383,6 @@ export default function DepositsPage() {
           fetchLogs={depositApi.getLogs}
           onClose={() => setLogModal(null)}
         />
-      )}
-    </div>
-  )
-}
-
-// ── Stat Card Component ──────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: React.ComponentType<{ size?: number }>; label: string; value: string; color: string
-}) {
-  return (
-    <div className="stat-card" style={{ padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Icon size={15} />
-        <span className="label">{label}</span>
-      </div>
-      <div className="mono" style={{ fontSize: 18, fontWeight: 700, color }}>{value}</div>
-    </div>
-  )
-}
-
-// ── Detail Field Component ───────────────────────────────────────────
-function DetailField({ label, value, color, bold, children }: {
-  label: string; value?: string; color?: string; bold?: boolean; children?: React.ReactNode
-}) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-      <span className="label">{label}</span>
-      {children || (
-        <span style={{ fontWeight: bold ? 700 : 400, color: color || 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-          {value}
-        </span>
       )}
     </div>
   )
