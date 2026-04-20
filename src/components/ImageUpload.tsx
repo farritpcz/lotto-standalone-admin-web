@@ -12,16 +12,42 @@
 
 import { useState, useRef } from 'react'
 import { api } from '@/lib/api'
+import { resolveImageUrl } from '@/lib/imageUrl'
 import { Upload, X, Image } from 'lucide-react'
 
 interface Props {
-  folder?: string          // subfolder: lottery, banner, avatar
+  folder?: string          // subfolder whitelist: lottery, banner, logo, favicon, promo, bank, contact, avatar, general
   currentUrl?: string      // URL รูปปัจจุบัน (preview)
   onUploaded: (url: string) => void  // callback เมื่ออัพโหลดเสร็จ
   size?: 'sm' | 'md' | 'lg'
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'
+// ⚠️ [Security] client-side size limit ตาม folder (ต้องตรงกับ backend imageguard.go)
+// client เช็คก่อน → UX ดีขึ้น (ไม่ต้อง upload เสียเวลา)
+// server enforce จริงๆ — ห้ามพึ่ง client-side เท่านั้น
+function sizeLimitForFolder(folder: string): number {
+  switch (folder) {
+    case 'avatar':
+    case 'logo':
+    case 'favicon':
+      return 500 * 1024          // 500 KB
+    case 'slip':
+    case 'bank':
+    case 'contact':
+      return 1 * 1024 * 1024     // 1 MB
+    case 'banner':
+    case 'promo':
+    case 'lottery':
+      return 2 * 1024 * 1024     // 2 MB
+    default:
+      return 1 * 1024 * 1024     // 1 MB
+  }
+}
+
+function sizeLimitLabel(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${bytes / 1024 / 1024} MB`
+  return `${bytes / 1024} KB`
+}
 
 export default function ImageUpload({ folder = 'general', currentUrl, onUploaded, size = 'md' }: Props) {
   const [uploading, setUploading] = useState(false)
@@ -32,18 +58,20 @@ export default function ImageUpload({ folder = 'general', currentUrl, onUploaded
   const dims = size === 'sm' ? { w: 80, h: 80 } : size === 'lg' ? { w: '100%' as const, h: 160 } : { w: 140, h: 100 }
 
   const handleFile = async (file: File) => {
-    // validate
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp']
+    // ⚠️ [Security] SVG ถูกถอดออก → ป้องกัน stored XSS (SVG รัน JavaScript ได้)
+    // backend ก็ reject SVG เช่นกัน (imageguard.go)
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
     if (!allowed.includes(file.type)) {
-      setError('รองรับเฉพาะ jpg, png, gif, svg, webp')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('ไฟล์ใหญ่เกิน 5MB')
+      setError('รองรับเฉพาะ jpg, png, gif, webp (ไม่รับ svg)')
       return
     }
 
-    // preview
+    const limit = sizeLimitForFolder(folder)
+    if (file.size > limit) {
+      setError(`ไฟล์ใหญ่เกิน ${sizeLimitLabel(limit)}`)
+      return
+    }
+
     setPreview(URL.createObjectURL(file))
     setError('')
     setUploading(true)
@@ -57,13 +85,13 @@ export default function ImageUpload({ folder = 'general', currentUrl, onUploaded
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const rawUrl = res.data.data?.url || ''
-      // R2 return full URL (https://...) — local return relative (/uploads/...)
-      const uploadedUrl = rawUrl.startsWith('http') ? rawUrl : API_BASE + rawUrl
+      // ⭐ backend คืน URL R2 absolute แล้ว (https://pub-xxx.r2.dev/...) — ใช้ตรงได้
+      const uploadedUrl = res.data.data?.url || ''
       onUploaded(uploadedUrl)
-      setPreview(null) // ใช้ URL จริงแทน
-    } catch {
-      setError('อัพโหลดไม่สำเร็จ')
+      setPreview(null)
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'อัพโหลดไม่สำเร็จ'
+      setError(msg)
       setPreview(null)
     } finally {
       setUploading(false)
@@ -76,7 +104,8 @@ export default function ImageUpload({ folder = 'general', currentUrl, onUploaded
     if (file) handleFile(file)
   }
 
-  const displayUrl = preview || currentUrl
+  // ⭐ ใช้ resolveImageUrl เพื่อรองรับทั้ง R2 absolute + legacy /uploads relative
+  const displayUrl = preview || resolveImageUrl(currentUrl)
 
   return (
     <div>

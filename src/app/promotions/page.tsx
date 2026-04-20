@@ -15,6 +15,7 @@ import { promotionApi, type Promotion } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import ImageUpload from '@/components/ImageUpload'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────
@@ -311,6 +312,20 @@ export default function PromotionsPage() {
                 <textarea className="input" rows={2} value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   style={{ height: 'auto', padding: '8px 12px' }} placeholder="รายละเอียดเพิ่มเติม..." />
+              </div>
+
+              {/* ⭐ รูปโปรโมชั่น — แสดงในหน้าโปรโมชั่นของ member */}
+              <div>
+                <div className="label" style={{ marginBottom: 4 }}>รูปโปรโมชั่น (optional)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                  อัพรูป banner/cover สำหรับโปรโมชั่น (แสดงในหน้า member)
+                </div>
+                <ImageUpload
+                  folder="promo"
+                  currentUrl={form.image_url}
+                  onUploaded={(url) => setForm(f => ({ ...f, image_url: url }))}
+                  size="lg"
+                />
               </div>
             </div>
 

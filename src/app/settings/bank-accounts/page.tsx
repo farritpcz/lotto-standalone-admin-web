@@ -22,6 +22,7 @@ import { api } from '@/lib/api'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
 import Loading from '@/components/Loading'
 import BankIcon from '@/components/BankIcon'
+import ImageUpload from '@/components/ImageUpload'
 import {
   ScanLine, Shield, CheckCircle, XCircle,
   Wifi, WifiOff, Banknote, Wallet, Eye, EyeOff, TestTube, History, AlertTriangle,
@@ -66,6 +67,7 @@ interface BankAccountForm {
   account_type: 'deposit' | 'withdraw'                // บัญชีฝาก หรือ บัญชีถอน
   transfer_mode: 'manual' | 'auto' | 'easyslip'       // มือ / ออโต้ RKAUTO / EasySlip ตรวจสลิป
   bank_system: string                                   // SMS / BANK / KBIZ (ใช้กับ auto)
+  qr_code_url: string                                   // ⭐ QR code ของบัญชี (optional — แสดงหน้าฝากเงิน)
   rkauto_token1: string
   rkauto_token2: string
 }
@@ -110,7 +112,7 @@ export default function BankAccountsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null) // null = เพิ่มใหม่
   const [form, setForm] = useState<BankAccountForm>({
-    bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit' as const, transfer_mode: 'manual' as const, bank_system: 'KBIZ', rkauto_token1: '', rkauto_token2: '',
+    bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit' as const, transfer_mode: 'manual' as const, bank_system: 'KBIZ', qr_code_url: '', rkauto_token1: '', rkauto_token2: '',
   })
   const [formSaving, setFormSaving] = useState(false)
 
@@ -196,7 +198,7 @@ export default function BankAccountsPage() {
    */
   const openAddModal = () => {
     setEditingId(null)
-    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit', transfer_mode: 'manual', bank_system: '', rkauto_token1: '', rkauto_token2: '' })
+    setForm({ bank_code: 'SCB', account_number: '', account_name: '', is_default: false, account_type: 'deposit', transfer_mode: 'manual', bank_system: '', qr_code_url: '', rkauto_token1: '', rkauto_token2: '' })
     setShowModal(true)
   }
 
@@ -214,6 +216,7 @@ export default function BankAccountsPage() {
       account_type: (acc.account_type as 'deposit' | 'withdraw') || 'deposit',
       transfer_mode: (acc.transfer_mode as 'manual' | 'auto') || 'manual',
       bank_system: acc.bank_system || '',
+      qr_code_url: (acc as any).qr_code_url || '', // ⭐ โหลด QR เดิม (ถ้ามี)
       rkauto_token1: '',
       rkauto_token2: '',
     })
@@ -805,6 +808,20 @@ export default function BankAccountsPage() {
                 />
                 ตั้งเป็นบัญชีหลัก (แสดงในหน้าฝากเงิน)
               </label>
+
+              {/* ⭐ QR Code upload — ถ้ามี → แสดงให้สมาชิกสแกนตอนฝาก */}
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>QR Code (optional)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+                  อัพรูป QR พร้อมเพย์ — ถ้ามี สมาชิกจะเห็น QR ตอนฝากเงิน (รองรับสแกนจากมือถือ)
+                </div>
+                <ImageUpload
+                  folder="bank"
+                  currentUrl={form.qr_code_url}
+                  onUploaded={(url) => setForm(f => ({ ...f, qr_code_url: url }))}
+                  size="md"
+                />
+              </div>
 
               {/* ── RKAUTO Section — แสดงเฉพาะ mode=auto ── */}
               {form.transfer_mode === 'auto' && (

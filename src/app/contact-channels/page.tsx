@@ -10,10 +10,12 @@ import { api } from '@/lib/api'
 import { Plus, MessageCircle, Send, Phone, Globe, Mail, Trash2, Edit3 } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ConfirmDialog, { ConfirmDialogProps } from '@/components/ConfirmDialog'
+import ImageUpload from '@/components/ImageUpload'
+import { resolveImageUrl } from '@/lib/imageUrl'
 
 interface Channel {
   id: number; platform: string; name: string; value: string
-  link_url: string; icon_url: string; sort_order: number; is_active: boolean
+  link_url: string; icon_url: string; qr_code_url: string; sort_order: number; is_active: boolean
 }
 
 const PLATFORMS = [
@@ -32,7 +34,7 @@ export default function ContactChannelsPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
-  const [form, setForm] = useState({ platform: 'line', name: '', value: '', link_url: '', sort_order: 0 })
+  const [form, setForm] = useState({ platform: 'line', name: '', value: '', link_url: '', qr_code_url: '', sort_order: 0 })
   const [saving, setSaving] = useState(false)
   const [confirmDlg, setConfirmDlg] = useState<ConfirmDialogProps | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -47,13 +49,13 @@ export default function ContactChannelsPage() {
 
   const openAdd = () => {
     setEditId(null)
-    setForm({ platform: 'line', name: '', value: '', link_url: '', sort_order: channels.length + 1 })
+    setForm({ platform: 'line', name: '', value: '', link_url: '', qr_code_url: '', sort_order: channels.length + 1 })
     setShowModal(true)
   }
 
   const openEdit = (ch: Channel) => {
     setEditId(ch.id)
-    setForm({ platform: ch.platform, name: ch.name, value: ch.value, link_url: ch.link_url, sort_order: ch.sort_order })
+    setForm({ platform: ch.platform, name: ch.name, value: ch.value, link_url: ch.link_url, qr_code_url: ch.qr_code_url || '', sort_order: ch.sort_order })
     setShowModal(true)
   }
 
@@ -207,6 +209,20 @@ export default function ContactChannelsPage() {
               <div>
                 <div className="label" style={{ marginBottom: 4 }}>Link URL (เปิดตรง)</div>
                 <input type="text" className="input" value={form.link_url} onChange={e => setForm(f => ({ ...f, link_url: e.target.value }))} placeholder="เช่น https://line.me/ti/p/@lotto" />
+              </div>
+
+              {/* ⭐ QR Code upload — ถ้ามี → สมาชิกเห็น QR ให้สแกน add friend */}
+              <div>
+                <div className="label" style={{ marginBottom: 4 }}>QR Code (optional)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                  อัพรูป QR — สมาชิกจะเห็น QR ในหน้าช่องทางติดต่อ (สแกนจากมือถือ)
+                </div>
+                <ImageUpload
+                  folder="contact"
+                  currentUrl={form.qr_code_url}
+                  onUploaded={(url) => setForm(f => ({ ...f, qr_code_url: url }))}
+                  size="md"
+                />
               </div>
             </div>
 
