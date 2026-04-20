@@ -1,7 +1,13 @@
 # Members UI — admin-web
 
-> Last updated: 2026-04-20 (v1 initial — starter rule)
-> Related code: `src/app/members/page.tsx`, `src/app/members/[id]/page.tsx`
+> Last updated: 2026-04-21 (v2 — refactor: page = orchestrator only)
+> Related code:
+>   - `src/app/members/page.tsx` (list, 158 LOC)
+>   - `src/app/members/[id]/page.tsx` (detail, 181 LOC)
+>   - `src/components/members/*` — MemberTable, MemberDetailModal, types
+>   - `src/components/member-detail/*` — header, sections, modal, tabs
+>   - `src/components/member-detail/hooks/*` — use-member-detail-data, use-member-actions
+>   - `src/components/member-detail/TabNav.tsx` — 4-tab nav
 
 ## 🎯 Purpose
 admin จัดการสมาชิก: รายชื่อ + ค้นหา + filter + หน้า detail (profile, bets, transactions, level, downline, bans) — เป็นหน้าหลักของ support
@@ -39,5 +45,15 @@ admin จัดการสมาชิก: รายชื่อ + ค้นห
 - Transactions UI: `transactions_ui.md`
 - Downline scoping: memory `downline_scoping`
 
+## 🧱 File structure (post-refactor, Tier A)
+- `page.tsx` = thin orchestrator — state + data-fetching + layout only
+- UI blocks → `components/members/` (list) + `components/member-detail/` (detail)
+- Action logic → `hooks/use-member-actions.ts` (adjust balance / profile / reset pwd / toggle status)
+- Data loading → `hooks/use-member-detail-data.ts` (member + txns + bets + pagination)
+- Tab nav → `TabNav.tsx` (source of truth for `TABS` const and `TabKey` type)
+
+> **Rule**: page.tsx ต้อง ≤ 300 LOC. ถ้าเกินให้แตกเพิ่ม component/hook ต่อ — อย่าเติมโค้ด inline
+
 ## 📝 Change Log
 - 2026-04-20: v1 initial skeleton
+- 2026-04-21: v2 refactor — split members/page (517→158), members/[id] (368→181) + extract hooks/tab-nav
